@@ -1,0 +1,28 @@
+{
+  "name": "financial-data-scraper",
+  "version": "1.0.0",
+  "description": "Financial data scraping service with Tiingo API and Google Finance fallback",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node src/test.js"
+  },
+  "keywords": [
+    "finance",
+    "scraper",
+    "tiingo",
+    "google-finance"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "https-proxy-agent": "^7.0.6",
+    "pg": "^8.16.3"
+  }
+}

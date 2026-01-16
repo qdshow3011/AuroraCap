@@ -1,0 +1,20 @@
+{
+  "name": "@aurora/types",
+  "version": "0.0.0",
+  "description": "Aurora Capital Type Definitions",
+  "type": "module",
+  "main": "./src/admin.ts",
+  "types": "./src/admin.ts",
+  "exports": {
+    ".": {
+      "types": "./src/admin.ts",
+      "default": "./src/admin.ts"
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["aurora", "types", "admin"],
+  "author": "Aurora Capital",
+  "license": "ISC"
+}

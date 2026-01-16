@@ -1,0 +1,7 @@
+# Supabase CLI configuration
+
+[db]
+port = 54322
+
+[auth]
+enabled = true

@@ -1,0 +1,17 @@
+{
+  "name": "@auroracap/utils",
+  "version": "1.0.0",
+  "description": "Shared utilities for AuroraCap applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

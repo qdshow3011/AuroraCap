@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Aurora Mobile",
+    "slug": "aurora-mobile",
+    "scheme": "aurora",
+    "sdkVersion": "51.0.0",
+    "platforms": ["ios", "android", "web"],
+    "orientation": "portrait",
+    "entryPoint": "./App.tsx"
+  }
+}
