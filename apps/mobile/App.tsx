@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { View, Text, Pressable, SafeAreaView, StyleSheet } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import PortfolioScreen from './src/screens/PortfolioScreen'
 import InsiderDetail from './src/screens/InsiderDetail'
 import InsiderList from './src/screens/InsiderList'
 import InsiderNewsScreen from './src/screens/InsiderNewsScreen'
+import CreateInsiderScreen from './src/screens/CreateInsiderScreen'
+import ConfigureAccountsScreen from './src/screens/ConfigureAccountsScreen'
+import DraftBoxScreen from './src/screens/DraftBoxScreen'
 import ProfileScreen from './src/screens/ProfileScreen'
 import TradesScreen from './src/screens/TradesScreen'
 import AuthScreen from './src/screens/AuthScreen'
@@ -30,6 +34,16 @@ import MyRedemptionRecordsScreen from './src/screens/MyRedemptionRecordsScreen'
 import MessageCenterScreen from './src/screens/MessageCenterScreen'
 import AvatarEditScreen from './src/screens/AvatarEditScreen'
 import SupabaseTest from './src/components/SupabaseTest'
+import SystemSettingsScreen from './src/screens/SystemSettingsScreen'
+import InterfaceSettingsScreen from './src/screens/InterfaceSettingsScreen'
+import PersonalInfoSecurityScreen from './src/screens/PersonalInfoSecurityScreen'
+import PersonalProfileScreen from './src/screens/PersonalProfileScreen'
+import CareModeScreen from './src/screens/CareModeScreen'
+import VersionSwitchScreen from './src/screens/VersionSwitchScreen'
+import HelpScreen from './src/screens/HelpScreen'
+import SecurityCenterScreen from './src/screens/SecurityCenterScreen'
+import AboutUsScreen from './src/screens/AboutUsScreen'
+import FeedbackScreen from './src/screens/FeedbackScreen'
 import { supabase } from './src/lib/supabase'
 
 export default function App() {
@@ -77,6 +91,27 @@ export default function App() {
   const [unreadMessages, setUnreadMessages] = useState(0)
   // 头像编辑相关状态
   const [showAvatarEdit, setShowAvatarEdit] = useState(false)
+  // 系统设置相关状态
+  const [showSystemSettings, setShowSystemSettings] = useState(false)
+  const [showInterfaceSettings, setShowInterfaceSettings] = useState(false)
+  const [showPersonalInfoSecurity, setShowPersonalInfoSecurity] = useState(false)
+  const [showPersonalProfile, setShowPersonalProfile] = useState(false)
+  const [showCareMode, setShowCareMode] = useState(false)
+  // 版本切换相关状态
+  const [appVersion, setAppVersion] = useState<'standard' | 'simple' | 'premium'>('standard')
+  const [showVersionSwitch, setShowVersionSwitch] = useState(false)
+  const [showCreateInsider, setShowCreateInsider] = useState(false)
+  const [showConfigureAccounts, setShowConfigureAccounts] = useState(false)
+  const [showDraftBox, setShowDraftBox] = useState(false)
+  const [editingDraft, setEditingDraft] = useState<any>(null)
+  // 帮助中心相关状态
+  const [showHelpCenter, setShowHelpCenter] = useState(false)
+  // 安全中心相关状态
+  const [showSecurityCenter, setShowSecurityCenter] = useState(false)
+  // 关于我们相关状态
+  const [showAboutUs, setShowAboutUs] = useState(false)
+  // 意见反馈相关状态
+  const [showFeedback, setShowFeedback] = useState(false)
   const demoUnlocked = isDemo
   
   // 语言翻译
@@ -189,7 +224,7 @@ export default function App() {
           if (positionsError) {
             console.error('获取持仓数据失败:', positionsError);
           } else {
-            console.log('获取到持仓数据:', positionsData);
+
             setObserverHoldings(positionsData || []);
           }
           
@@ -201,7 +236,7 @@ export default function App() {
         }
       } else {
         // 没有数据库连接，但保持已认证状态
-        console.log('没有数据库连接，但保持已认证状态');
+
       }
     } catch (error) {
       console.error('获取用户信息失败:', error);
@@ -215,13 +250,11 @@ export default function App() {
     setAuthed(false);
     setIsDemo(false);
     setUserInfo(null);
-    console.log('应用启动 - 认证状态重置:', { authed: false, isDemo: false, isAuthenticated: false });
+
   }, []);
 
   // 监听认证状态变化，获取用户信息
   useEffect(() => {
-    console.log('authed changed:', authed);
-    console.log('userInfo when authed changed:', userInfo);
     if (authed) {
       fetchUserInfo();
     }
@@ -231,11 +264,11 @@ export default function App() {
   const isAuthenticated = authed;
   
   // 添加调试日志，跟踪认证状态
-  console.log('认证状态检查:', { authed, isDemo, isAuthenticated, showAuth });
+
   
   // 如果未认证，显示登录或启动界面
   if (!isAuthenticated) {
-    console.log('未认证，显示登录界面');
+
     if (!showAuth) {
       return (
         <SplashScreen lang={lang} onLangChange={setLang} onLogin={() => setShowAuth('login')} onRegister={() => setShowAuth('register')} />
@@ -243,10 +276,10 @@ export default function App() {
     } else {
       return (
         <AuthScreen lang={lang} setLang={setLang} onAuthed={(userInfo) => { 
-          console.log('onAuthed called with userInfo:', userInfo);
+
           setAuthed(true);
           if (userInfo) {
-            console.log('Setting userInfo:', userInfo);
+
             setUserInfo(userInfo);
           }
         }} initialTab={showAuth} onBack={() => { setShowAuth(null) }} />
@@ -254,7 +287,7 @@ export default function App() {
     }
   }
   
-  console.log('已认证，显示主界面');
+
 
   
   // 以下内容只有认证用户才能看到
@@ -264,7 +297,9 @@ export default function App() {
     return (
       <InsiderDetail 
         article={selectedInsiderArticle} 
-        lang={lang} 
+        lang={lang}
+        userInfo={userInfo}
+        appVersion={appVersion}
         onClose={() => {
           setShowInsiderDetail(false)
           setSelectedInsiderArticle(null)
@@ -293,7 +328,6 @@ export default function App() {
   
   // 如果显示资产状况页面，覆盖整个界面
   if (showAssetStatus) {
-    console.log('Rendering AssetStatusScreen with userInfo:', userInfo);
     return (
       <AssetStatusScreen 
         lang={lang} 
@@ -314,7 +348,100 @@ export default function App() {
       />
     );
   }
+
+  // 如果显示系统设置页面，覆盖整个界面
+  if (showSystemSettings) {
+    return (
+      <SystemSettingsScreen 
+        lang={lang} 
+        onClose={() => setShowSystemSettings(false)}
+        onLanguageChange={(newLang) => setLang(newLang)}
+        onNavigateToFeedback={() => {
+          setShowSystemSettings(false);
+          setShowFeedback(true);
+        }}
+        onNavigateToSecurityCenter={() => {
+          setShowSystemSettings(false);
+          setShowSecurityCenter(true);
+        }}
+        onNavigateToHelpCenter={() => {
+          setShowSystemSettings(false);
+          setShowHelpCenter(true);
+        }}
+        onNavigateToAboutUs={() => {
+          setShowSystemSettings(false);
+          setShowAboutUs(true);
+        }}
+        userInfo={userInfo}
+      />
+    );
+  }
+
+  // 如果显示界面与显示页面，覆盖整个界面
+  if (showInterfaceSettings) {
+    return (
+      <InterfaceSettingsScreen 
+        lang={lang} 
+        onClose={() => setShowInterfaceSettings(false)}
+        onLanguageChange={(newLang) => setLang(newLang)}
+      />
+    );
+  }
+
+  // 如果显示个人信息与安全页面，覆盖整个界面
+  if (showPersonalInfoSecurity) {
+    return (
+      <PersonalInfoSecurityScreen 
+        lang={lang} 
+        onClose={() => setShowPersonalInfoSecurity(false)}
+        onNavigateToPersonalProfile={() => {
+          setShowPersonalInfoSecurity(false);
+          setShowPersonalProfile(true);
+        }}
+      />
+    );
+  }
+
+  // 如果显示个人资料页面，覆盖整个界面
+  if (showPersonalProfile) {
+    return (
+      <PersonalProfileScreen 
+        lang={lang} 
+        userInfo={userInfo} 
+        onClose={() => setShowPersonalProfile(false)}
+        onNavigateToAvatarEdit={() => {
+          setShowPersonalProfile(false);
+          setShowAvatarEdit(true);
+        }}
+      />
+    );
+  }
+
+  // 如果显示关怀模式页面，覆盖整个界面
+  if (showCareMode) {
+    return (
+      <CareModeScreen 
+        lang={lang} 
+        onClose={() => setShowCareMode(false)}
+      />
+    );
+  }
   
+  // 如果显示版本切换页面，覆盖整个界面
+  if (showVersionSwitch) {
+    return (
+      <VersionSwitchScreen 
+        lang={lang} 
+        currentVersion={appVersion}
+        onClose={() => setShowVersionSwitch(false)}
+        onVersionChange={(version) => {
+          setAppVersion(version);
+          setShowVersionSwitch(false);
+        }}
+      />
+    );
+  }
+
   // 如果显示成功页面，覆盖整个界面
   if (showSubscriptionSuccess) {
     return (
@@ -725,18 +852,109 @@ export default function App() {
     );
   }
   
+  // 如果显示撰写内参页面
+  if (showCreateInsider) {
+    return (
+      <CreateInsiderScreen 
+        lang={lang}
+        userInfo={userInfo}
+        draft={editingDraft}
+        onClose={() => {
+          setShowCreateInsider(false)
+          setEditingDraft(null)
+        }}
+        onNavigateToDraftBox={() => {
+          // 先设置显示草稿箱，再关闭撰写页面
+          // 这样可以确保状态更新的顺序正确
+          setShowDraftBox(true)
+          setShowCreateInsider(false)
+          setEditingDraft(null)
+        }}
+      />
+    );
+  }
+  
+  // 如果显示配置公众号页面
+  if (showConfigureAccounts) {
+    return (
+      <ConfigureAccountsScreen 
+        lang={lang}
+        userInfo={userInfo}
+        onClose={() => setShowConfigureAccounts(false)}
+      />
+    );
+  }
+  
+  // 如果显示草稿箱页面
+  if (showDraftBox) {
+    return (
+      <DraftBoxScreen 
+        lang={lang}
+        userInfo={userInfo}
+        onClose={() => setShowDraftBox(false)}
+        onEditDraft={(draft) => {
+
+          setEditingDraft(draft);
+          setShowDraftBox(false);
+          setShowCreateInsider(true);
+        }}
+      />
+    );
+  }
+  
+  // 如果显示帮助中心页面
+  if (showHelpCenter) {
+    return (
+      <HelpScreen 
+        lang={lang}
+        onBack={() => setShowHelpCenter(false)}
+      />
+    );
+  }
+  
+  // 如果显示安全中心页面
+  if (showSecurityCenter) {
+    return (
+      <SecurityCenterScreen 
+        lang={lang}
+        onBack={() => setShowSecurityCenter(false)}
+      />
+    );
+  }
+  
+  // 如果显示关于我们页面
+  if (showAboutUs) {
+    return (
+      <AboutUsScreen 
+        lang={lang}
+        onBack={() => setShowAboutUs(false)}
+      />
+    );
+  }
+  
+  // 如果显示意见反馈页面
+  if (showFeedback) {
+    return (
+      <FeedbackScreen 
+        lang={lang}
+        onClose={() => setShowFeedback(false)}
+        userInfo={userInfo}
+      />
+    );
+  }
+  
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingTop: 0 }]}>
       {/* 主内容区域 */}
       <View style={styles.content}>
-        {tab === 'home' && <PortfolioScreen demo={isDemo} lang={lang} userInfo={userInfo} unreadMessages={unreadMessages} onInsiderArticlePress={(article) => {
+        {tab === 'home' && <PortfolioScreen demo={isDemo} lang={lang} userInfo={userInfo} unreadMessages={unreadMessages} appVersion={appVersion} onInsiderArticlePress={(article) => {
             setSelectedInsiderArticle(article)
             setShowInsiderDetail(true)
           }} onProductPress={(product) => {
             setSelectedProduct(product)
             setShowProductDetail(true)
           }} onNavigateTo={(screen) => {
-            console.log(`Navigating to: ${screen}`);
+
             // 根据不同的屏幕名称处理导航
             switch(screen) {
               case 'products':
@@ -780,9 +998,12 @@ export default function App() {
               case 'subscriptionRedemptionRecords':
                 setShowSubscriptionRedemptionRecords(true);
                 break;
+              case 'version-switch':
+                setShowVersionSwitch(true);
+                break;
               // 其他屏幕可以在这里添加导航逻辑
               default:
-                console.log(`Screen ${screen} not implemented yet`);
+
             }
           }} onNavigateToSubscriptionApplication={(product) => {
             setSubscriptionProduct(product);
@@ -795,6 +1016,7 @@ export default function App() {
           demo={false} 
           lang={lang} 
           userInfo={userInfo} 
+          appVersion={appVersion}
           onNavigateToAssetStatus={() => setShowAssetStatus(true)} 
           onNavigateToSubscriptionApplication={(product) => {
             setSubscriptionProduct(product);
@@ -804,10 +1026,16 @@ export default function App() {
           onNavigateToCustomerService={() => setShowCustomerService(true)} 
           onNavigateToWithdrawalApplication={() => setShowWithdrawalApplication(true)} 
           onNavigateToFundTransactions={() => setShowFundTransactions(true)} 
+          onNavigateToVersionSwitch={() => setShowVersionSwitch(true)}
+          onNavigateToMessageCenter={() => {
+            setMessageCenterCategory('all');
+            setShowMessageCenter(true);
+          }}
         />}
         {tab === 'trades' && <TradesScreen 
           lang={lang} 
           userInfo={userInfo} 
+          appVersion={appVersion}
           onNavigateToSubscriptionApplication={() => setShowSubscriptionApplication(true)} 
           onNavigateToRedemptionApplication={(product) => {
             setRedemptionProduct(product);
@@ -817,23 +1045,104 @@ export default function App() {
           onNavigateToContractSigning={() => setShowContractSigning(true)} 
           onNavigateToMySubscriptionRecords={() => setShowMySubscriptionRecords(true)} 
           onNavigateToMyRedemptionRecords={() => setShowMyRedemptionRecords(true)} 
+          onNavigateToCustomerService={() => setShowCustomerService(true)} 
+          onNavigateToMessageCenter={() => {
+            setMessageCenterCategory('all');
+            setShowMessageCenter(true);
+          }}
+          onNavigateToVersionSwitch={() => setShowVersionSwitch(true)}
         />}
-        {tab === 'insider' && <InsiderNewsScreen demo={isDemo} lang={lang} />}
+        {tab === 'insider' && <InsiderNewsScreen demo={isDemo} lang={lang} appVersion={appVersion} onArticlePress={(article) => {
+            setSelectedInsiderArticle(article)
+            setShowInsiderDetail(true)
+          }} onNavigateTo={(screen) => {
+
+            // 根据不同的屏幕名称处理导航
+            switch(screen) {
+              case 'message-center':
+                setMessageCenterCategory('all');
+                setShowMessageCenter(true);
+                break;
+              case 'customer-service':
+                setShowCustomerService(true);
+                break;
+              case 'version-switch':
+                setShowVersionSwitch(true);
+                break;
+              case 'create-insider':
+                setShowCreateInsider(true);
+                break;
+              case 'configure-accounts':
+                setShowConfigureAccounts(true);
+                break;
+              case 'draft-box':
+                setShowDraftBox(true);
+                break;
+              default:
+
+            }
+          }} />}
         {tab === 'profile' && (
           <ProfileScreen 
             isDemo={isDemo} 
             userInfo={userInfo} 
+            appVersion={appVersion}
             onSwitchAccount={() => {
               setAuthed(false)
               setIsDemo(false)
               setShowAuth('login')
             }} 
             onLogout={() => {
+              // 清除所有用户相关状态，实现无痕模式
               setAuthed(false)
               setIsDemo(false)
               setShowAuth(null) // 回到起始页
               setTab('home')
               setUserInfo(null) // 清除用户信息
+              // 清除用户相关的界面状态
+              setShowAccountInfo(false)
+              setShowAssetStatus(false)
+              setShowFundTransactions(false)
+              setShowSubscriptionRedemptionRecords(false)
+              setShowMessageCenter(false)
+              setMessageCenterCategory('all')
+              setUnreadMessages(0)
+              setShowAvatarEdit(false)
+              setShowSystemSettings(false)
+              setShowInterfaceSettings(false)
+              setShowPersonalInfoSecurity(false)
+              setShowPersonalProfile(false)
+              // 清除产品和内参相关状态
+              setSelectedInsiderArticle(null)
+              setShowInsiderDetail(false)
+              setSelectedProduct(null)
+              setShowProductDetail(false)
+              setShowSubscriptionApplication(false)
+              setShowSubscriptionSuccess(false)
+              setSubscriptionProduct(null)
+              setSubscriptionId(null)
+              setShowRedemptionApplication(false)
+              setShowRedemptionSuccess(false)
+              setRedemptionId(null)
+              setRedemptionProduct(null)
+              setObserverHoldings([])
+              setShowDepositService(false)
+              setShowCustomerService(false)
+              setShowWithdrawalApplication(false)
+              setShowWithdrawalSuccess(false)
+              setWithdrawalId(null)
+              setShowHoldings(false)
+              // 清除合同相关状态
+              setShowContractSigning(false)
+              setShowContractDetail(false)
+              setConsultationType(undefined)
+              setSelectedContract(null)
+              setShowMySubscriptionRecords(false)
+              setShowMyRedemptionRecords(false)
+              // 清除其他界面状态
+              setShowCareMode(false)
+              setShowVersionSwitch(false)
+
             }} 
             onEditAccountInfo={() => setShowAccountInfo(true)}
             onNavigateToAvatarEdit={() => setShowAvatarEdit(true)}
@@ -850,8 +1159,12 @@ export default function App() {
               setShowMessageCenter(true);
             }} 
             onNavigateToApplicationProcessing={() => alert('申请办理功能开发中')} 
-            onNavigateToMyCustomers={() => alert('我的客户功能开发中')} 
-            onNavigateToFunctionSettings={() => alert('功能设置功能开发中')} 
+            onNavigateToMyCustomers={() => alert('我的客户功能开发中')}
+            onNavigateToSystemSettings={() => setShowSystemSettings(true)}
+            onNavigateToVersionSwitch={() => setShowVersionSwitch(true)}
+            onNavigateToHelpCenter={() => setShowHelpCenter(true)}
+            onNavigateToSecurityCenter={() => setShowSecurityCenter(true)}
+            onNavigateToAboutUs={() => setShowAboutUs(true)}
           />
         )}
       </View>
@@ -862,30 +1175,55 @@ export default function App() {
           style={[styles.navItem, tab === 'home' && styles.activeNavItem]} 
           onPress={() => setTab('home')}
         >
+          <Ionicons 
+            name="home-outline" 
+            size={24} 
+            color={tab === 'home' ? '#4a90e2' : '#999'} 
+          />
           <Text style={[styles.navText, tab === 'home' && styles.activeNavText]}>{t.home}</Text>
         </Pressable>
         <Pressable 
           style={[styles.navItem, tab === 'products' && styles.activeNavItem]} 
           onPress={() => setTab('products')}
         >
+          <Ionicons 
+            name="briefcase-outline" 
+            size={24} 
+            color={tab === 'products' ? '#4a90e2' : '#999'} 
+          />
           <Text style={[styles.navText, tab === 'products' && styles.activeNavText]}>{t.products}</Text>
         </Pressable>
         <Pressable 
           style={[styles.navItem, tab === 'trades' && styles.activeNavItem]} 
           onPress={() => setTab('trades')}
         >
+          <Ionicons 
+            name="swap-horizontal-outline" 
+            size={24} 
+            color={tab === 'trades' ? '#4a90e2' : '#999'} 
+          />
           <Text style={[styles.navText, tab === 'trades' && styles.activeNavText]}>{t.trades}</Text>
         </Pressable>
         <Pressable 
           style={[styles.navItem, tab === 'insider' && styles.activeNavItem]} 
           onPress={() => setTab('insider')}
         >
+          <Ionicons 
+            name="newspaper-outline" 
+            size={24} 
+            color={tab === 'insider' ? '#4a90e2' : '#999'} 
+          />
           <Text style={[styles.navText, tab === 'insider' && styles.activeNavText]}>{t.insider}</Text>
         </Pressable>
         <Pressable 
           style={[styles.navItem, tab === 'profile' && styles.activeNavItem]} 
           onPress={() => setTab('profile')}
         >
+          <Ionicons 
+            name="person-outline" 
+            size={24} 
+            color={tab === 'profile' ? '#4a90e2' : '#999'} 
+          />
           <Text style={[styles.navText, tab === 'profile' && styles.activeNavText]}>{t.profile}</Text>
         </Pressable>
       </View>
@@ -919,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -929,8 +1267,9 @@ const styles = StyleSheet.create({
   },
   navText: {
     color: '#999',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
+    marginTop: 4,
   },
   activeNavText: {
     color: '#4a90e2',
