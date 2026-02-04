@@ -18,4 +18,17 @@ config.resolver.extraNodeModules = {
 }
 config.resolver.disableHierarchicalLookups = true
 
+// Exclude incompatible modules from web bundle
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web') {
+    // Exclude react-native-pdf and pdf-parse from web bundle
+    if (moduleName === 'react-native-pdf' || moduleName === 'pdf-parse' || moduleName === 'node-fetch') {
+      return {
+        type: 'empty'
+      }
+    }
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = config

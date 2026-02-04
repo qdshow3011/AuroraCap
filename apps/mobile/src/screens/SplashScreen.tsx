@@ -14,11 +14,11 @@ const AuroraLogo = ({ size = 48, color = '#FF0000' }) => {
   )
 }
 
-const AuroraLogoWithText = ({ size = 24, color = '#FF0000', textColor = '#FFFFFF' }) => {
+const AuroraLogoWithText = ({ size = 28, color = '#FF0000', textColor = '#FFFFFF' }) => {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <AuroraLogo size={size} color={color} />
-      <Text style={{ color: textColor, fontWeight: 'bold', fontSize: size * 0.45, flexWrap: 'nowrap' }}>
+      <Text style={{ color: textColor, fontWeight: '600', fontSize: size * 0.5, flexWrap: 'nowrap', fontFamily: 'System' }}>
         Aurora Intelligent Fund
       </Text>
     </View>
@@ -102,9 +102,9 @@ export default function SplashScreen({ lang, onLangChange, onLogin, onRegister }
           {t.slides.map((s, i) => (
             <View key={i} style={{ width, height: height * 0.4, padding: 24, justifyContent: 'center' }}>
               <Animated.View style={{ opacity: fade, transform: [{ translateX }] }}>
-                <AuroraLogoWithText size={24} color="#FF0000" textColor="#FFFFFF" />
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', marginTop: 12 }}>{s.h1}</Text>
-                <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 6 }}>{s.h2}</Text>
+                <AuroraLogoWithText size={28} color="#FF0000" textColor="#FFFFFF" />
+                <Text style={{ color: '#fff', fontSize: 28, fontWeight: '600', marginTop: 16, fontFamily: 'System' }}>{s.h1}</Text>
+                <Text style={{ color: '#9ca3af', fontSize: 14, marginTop: 8, lineHeight: 20, fontFamily: 'System' }}>{s.h2}</Text>
               </Animated.View>
             </View>
           ))}
@@ -133,7 +133,7 @@ export default function SplashScreen({ lang, onLangChange, onLogin, onRegister }
         <Pressable onPress={() => onLangChange(lang === 'zh' ? 'en' : 'zh')} style={{ padding: 6, backgroundColor: '#374151', borderRadius: 4 }}>
           <Text style={{ color: '#fff', fontSize: 10 }}>En/中</Text>
         </Pressable>
-        <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 12 }}>极光基金管理有限公司</Text>
+        <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 12 }}>Aurora Intelligent Fund</Text>
       </View>
     </View>
   )

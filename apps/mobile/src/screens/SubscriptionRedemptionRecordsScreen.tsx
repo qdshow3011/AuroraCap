@@ -368,7 +368,9 @@ export default function SubscriptionRedemptionRecordsScreen({
               <Text style={styles.errorText}>{t.error}</Text>
             </View>
           ) : subscriptionRecords.length > 0 ? (
-            subscriptionRecords.map(item => renderSubscriptionItem({ item }))
+            subscriptionRecords.map(item => (
+              <View key={item.id}>{renderSubscriptionItem({ item })}</View>
+            ))
           ) : (
             <View style={styles.emptyRecordsContainer}>
               <Text style={styles.emptyRecordsText}>{t.noRecords}</Text>
@@ -388,7 +390,9 @@ export default function SubscriptionRedemptionRecordsScreen({
               <Text style={styles.errorText}>{t.error}</Text>
             </View>
           ) : redemptionRecords.length > 0 ? (
-            redemptionRecords.map(item => renderRedemptionItem({ item }))
+            redemptionRecords.map(item => (
+              <View key={item.id}>{renderRedemptionItem({ item })}</View>
+            ))
           ) : (
             <View style={styles.emptyRecordsContainer}>
               <Text style={styles.emptyRecordsText}>{t.noRecords}</Text>

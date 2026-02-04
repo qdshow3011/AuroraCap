@@ -1,51 +1,58 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native'
-import { supabase } from '../lib/supabase'
+import { View, Text, Pressable, ActivityIndicator, RefreshControl, ScrollView, Image, FlatList } from 'react-native'
+import { getFollowedAccounts } from '../api/accounts'
+import { getArticles } from '../api/articles'
 
-interface InsiderArticle {
+interface OfficialAccount {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  cover_image?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Article {
   id: string;
   title: string;
   content: string;
-  content_html?: string;
-  category: 'research' | 'analysis' | 'strategy' | 'report' | 'other';
-  audience: 'all' | 'admin' | 'partner' | 'specific';
-  status: 'draft' | 'published' | 'archived';
+  cover_image?: string;
+  read_count?: number;
+  like_count?: number;
+  comment_count?: number;
   created_at: string;
-  updated_at: string;
   published_at?: string;
+  wechat_official_accounts?: {
+    name: string;
+    avatar: string;
+  };
 }
 
-export default function InsiderList({ onOpenDetail, lang = 'zh' }: { onOpenDetail: (article: InsiderArticle) => void; lang?: 'zh' | 'en' }) {
-  const [list, setList] = useState<InsiderArticle[]>([])
+export default function InsiderList({ onOpenAccount, onOpenArticle, lang = 'zh' }: { 
+  onOpenAccount: (account: OfficialAccount) => void; 
+  onOpenArticle: (article: Article) => void; 
+  lang?: 'zh' | 'en';
+}) {
+  const [followedAccounts, setFollowedAccounts] = useState<OfficialAccount[]>([])
+  const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const title = lang === 'zh' ? '内参文章' : 'Insider Articles'
 
-  const fetchArticles = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true)
-      // 从Supabase直接获取内参文章
-      if (!supabase) {
-        throw new Error('Supabase client not initialized')
-      }
-      const { data, error } = await supabase
-        .from('internal_references')
-        .select('*')
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .limit(50)
       
-      if (error) throw error
+      // 获取用户关注的公众号列表
+      const accounts = await getFollowedAccounts();
+      setFollowedAccounts(accounts);
       
-      // Map content to content_html for consistency
-      const processedArticles = (data || []).map((article: any) => ({
-        ...article,
-        content_html: article.content
-      }))
-      
-      setList(processedArticles)
+      // 获取文章列表（按最新排序）
+      const { articles: articleList } = await getArticles({ limit: 50 });
+      setArticles(articleList);
     } catch (error) {
-      console.error('Error fetching articles:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -53,70 +60,159 @@ export default function InsiderList({ onOpenDetail, lang = 'zh' }: { onOpenDetai
   }
 
   useEffect(() => {
-    fetchArticles()
+    fetchData()
   }, [])
 
   const onRefresh = () => {
     setRefreshing(true)
-    fetchArticles()
+    fetchData()
+  }
+
+  const renderAccountItem = ({ item }: { item: OfficialAccount }) => (
+    <Pressable 
+      onPress={() => onOpenAccount(item)} 
+      style={{ 
+        alignItems: 'center', 
+        marginHorizontal: 12,
+        marginVertical: 8
+      }}
+    >
+      <View style={{ 
+        width: 64, 
+        height: 64, 
+        borderRadius: 32, 
+        backgroundColor: '#f0f0f0',
+        overflow: 'hidden',
+        marginBottom: 8
+      }}>
+        {item.avatar ? (
+          <Image source={{ uri: item.avatar }} style={{ width: '100%', height: '100%' }} />
+        ) : (
+          <View style={{ 
+            width: '100%', 
+            height: '100%', 
+            backgroundColor: '#576b95',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+              {item.name.charAt(0)}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={{ color: '#333', fontSize: 12, textAlign: 'center', maxWidth: 80 }}>
+        {item.name}
+      </Text>
+    </Pressable>
+  )
+
+  const renderArticleItem = ({ item }: { item: Article }) => (
+    <Pressable 
+      onPress={() => onOpenArticle(item)} 
+      style={{ 
+        flexDirection: 'row',
+        padding: 16, 
+        borderBottomWidth: 1, 
+        borderBottomColor: '#f0f0f0',
+        backgroundColor: '#fff'
+      }}
+    >
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Text style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>
+          {item.wechat_official_accounts?.name || '未知公众号'}
+        </Text>
+        <Text style={{ color: '#333', fontSize: 16, fontWeight: '500', marginBottom: 4, lineHeight: 22 }}>
+          {item.title}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: '#999', fontSize: 11, marginRight: 12 }}>
+            {new Date(item.published_at || item.created_at).toLocaleDateString()}
+          </Text>
+          {item.read_count !== undefined && (
+            <Text style={{ color: '#999', fontSize: 11 }}>
+              {item.read_count} 阅读
+            </Text>
+          )}
+        </View>
+      </View>
+      {item.cover_image && (
+        <View style={{ width: 80, height: 80, borderRadius: 4, overflow: 'hidden' }}>
+          <Image source={{ uri: item.cover_image }} style={{ width: '100%', height: '100%' }} />
+        </View>
+      )}
+    </Pressable>
+  )
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
+        <ActivityIndicator size="large" color="#576b95" />
+      </View>
+    )
   }
 
   return (
-    <View style={{ flex: 1, padding: 16, backgroundColor: '#0f172a' }}>
-      <Text style={{ color: '#fff', fontSize: 18, marginBottom: 12, fontWeight: 'bold' }}>{title}</Text>
-      
-      {loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-        </View>
-      ) : (
-        <ScrollView 
-          style={{ flex: 1 }} 
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={['#3b82f6']} 
-              tintColor="#3b82f6"
-            />
-          }
-        >
-          {list.length === 0 ? (
-            <Text style={{ color: '#94a3b8', textAlign: 'center', marginTop: 50 }}>
-              {lang === 'zh' ? '暂无内参文章' : 'No insider articles available'}
+    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      {/* 顶部导航栏 */}
+      <View style={{ 
+        backgroundColor: '#fff', 
+        paddingHorizontal: 16, 
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0'
+      }}>
+        <Text style={{ color: '#333', fontSize: 18, fontWeight: '600' }}>
+          {lang === 'zh' ? '公众号' : 'Official Accounts'}
+        </Text>
+      </View>
+
+      <ScrollView 
+        style={{ flex: 1 }} 
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#576b95']} 
+            tintColor="#576b95"
+          />
+        }
+      >
+        {/* 常看公众号区域 */}
+        <View style={{ backgroundColor: '#fff', paddingVertical: 12, marginBottom: 8 }}>
+          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+            <Text style={{ color: '#333', fontSize: 16, fontWeight: '600' }}>
+              {lang === 'zh' ? '常看' : 'Frequently Viewed'}
             </Text>
+          </View>
+          <FlatList
+            data={followedAccounts.slice(0, 5)} // 只显示前5个作为常看
+            renderItem={renderAccountItem}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+          />
+        </View>
+
+        {/* 文章列表区域 */}
+        <View style={{ backgroundColor: '#fff' }}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+            <Text style={{ color: '#333', fontSize: 16, fontWeight: '600' }}>
+              {lang === 'zh' ? '最新文章' : 'Latest Articles'}
+            </Text>
+          </View>
+          {articles.length === 0 ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ color: '#999', fontSize: 14 }}>
+                {lang === 'zh' ? '暂无文章' : 'No articles available'}
+              </Text>
+            </View>
           ) : (
-            list.map(item => (
-              <Pressable 
-                key={item.id} 
-                onPress={() => onOpenDetail(item)} 
-                style={{ 
-                  padding: 16, 
-                  borderBottomWidth: 1, 
-                  borderColor: '#1e293b',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 8,
-                  marginBottom: 8
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500', marginBottom: 4 }}>
-                  {item.title}
-                </Text>
-                <Text style={{ color: '#3b82f6', fontSize: 12, marginBottom: 2 }}>
-                  {lang === 'zh' ? `分类: ${item.category === 'research' ? '研究报告' : 
-                   item.category === 'analysis' ? '分析评论' : 
-                   item.category === 'strategy' ? '投资策略' : 
-                   item.category === 'report' ? '业绩报告' : '其他'}` : 
-                   `Category: ${item.category}`}
-                </Text>
-                <Text style={{ color: '#64748b', fontSize: 11 }}>
-                  {new Date(item.published_at || item.created_at).toLocaleDateString()}
-                </Text>
-              </Pressable>
-            ))
+            articles.map((item) => renderArticleItem({ item }))
           )}
-        </ScrollView>
-      )}
+        </View>
+      </ScrollView>
     </View>
   )
 }

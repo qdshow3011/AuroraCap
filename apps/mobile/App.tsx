@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Pressable, SafeAreaView, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet, StatusBar } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import PortfolioScreen from './src/screens/PortfolioScreen'
 import InsiderDetail from './src/screens/InsiderDetail'
 import InsiderList from './src/screens/InsiderList'
@@ -944,9 +945,10 @@ export default function App() {
   }
   
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: 0 }]}>
-      {/* 主内容区域 */}
-      <View style={styles.content}>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        {/* 主内容区域 */}
+        <View style={styles.content}>
         {tab === 'home' && <PortfolioScreen demo={isDemo} lang={lang} userInfo={userInfo} unreadMessages={unreadMessages} appVersion={appVersion} onInsiderArticlePress={(article) => {
             setSelectedInsiderArticle(article)
             setShowInsiderDetail(true)
@@ -1227,7 +1229,8 @@ export default function App() {
           <Text style={[styles.navText, tab === 'profile' && styles.activeNavText]}>{t.profile}</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+      </View>
+    </SafeAreaProvider>
   )
 }
 

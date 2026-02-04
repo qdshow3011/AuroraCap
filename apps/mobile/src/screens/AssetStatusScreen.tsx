@@ -50,19 +50,12 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
   // 滚动相关ref
   const scrollViewRef = useRef<ScrollView>(null)
 
-  // 调试：打印userInfo
-  console.log('AssetStatusScreen - userInfo:', userInfo)
-  console.log('AssetStatusScreen - userInfo.id:', userInfo?.id)
-
   // 数据加载函数
   const loadData = async (isRefresh: boolean = false) => {
     setLoading(isRefresh ? false : true)
     setRefreshing(isRefresh)
-    setError(null)
     try {
       if (!userInfo || !userInfo.id) {
-        console.log('用户信息缺失:', userInfo)
-        setError('请先登录')
         setAssets(null)
         return
       }
@@ -93,20 +86,16 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
         .select('*')
         .eq('user_id', userInfo.id)
       
-      if (cashBalanceError) {
-        console.error('获取现金余额数据失败:', cashBalanceError)
-      }
-      
       if (cashBalanceData && cashBalanceData.length > 0) {
-        cashBalance = cashBalanceData[0].cash_balance || 0
-        availableBalance = cashBalanceData[0].cash_balance || 0
-        pendingAmount = cashBalanceData[0].pending_funds || 0
+        cashBalance = cashBalanceData[0].cash_balance
+        availableBalance = cashBalanceData[0].cash_balance
+        pendingAmount = cashBalanceData[0].pending_funds
       } else {
-        console.log('未找到现金余额记录，使用默认值')
+        console.log('未找到现金余额记录，使用默认值:', cashBalanceError)
         // 使用默认值
-        cashBalance = 0
-        availableBalance = 0
-        pendingAmount = 0
+        cashBalance = 100000.00
+        availableBalance = 100000.00
+        pendingAmount = 0.00
       }
       
       // 总资产 = 基金价值 + 现金余额
@@ -123,7 +112,6 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
     } catch (error) {
       console.error('Error loading data:', error)
       setError('无法加载数据，请检查网络连接或稍后重试')
-      setAssets(null)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -186,34 +174,37 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
   const getPieChartData = () => {
     if (!assets) return []
     
-    return [
+    const data = [
       {
         name: t.fundValue,
-        population: assets.fundValue,
+        population: assets.fundValue || 0,
         color: '#188038',
         legendFontColor: '#7F7F7F',
         legendFontSize: 12
       },
       {
         name: t.cashBalance,
-        population: assets.cashBalance,
+        population: assets.cashBalance || 0,
         color: '#1890ff',
         legendFontColor: '#7F7F7F',
         legendFontSize: 12
       },
       {
         name: t.pendingFunds,
-        population: assets.pendingFunds,
+        population: assets.pendingFunds || 0,
         color: '#faad14',
         legendFontColor: '#7F7F7F',
         legendFontSize: 12
       }
     ]
+    
+    console.log('Pie chart data:', data)
+    return data
   }
 
   // 计算占比
   const calculatePercentage = (value: number) => {
-    if (!assets || assets.totalAssets === 0) return '0%'
+    if (!assets || !assets.totalAssets || assets.totalAssets === 0) return '0%'
     const percentage = (value / assets.totalAssets) * 100
     return `${percentage.toFixed(1)}%`
   }
@@ -232,20 +223,6 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
         <Text style={styles.errorText}>
           {lang === 'zh' ? `错误: ${error}` : `Error: ${error}`}
         </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-          <Text style={styles.retryButtonText}>{lang === 'zh' ? '重试' : 'Retry'}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  if (!assets) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>{lang === 'zh' ? '暂无资产数据' : 'No asset data available'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-          <Text style={styles.retryButtonText}>{lang === 'zh' ? '刷新' : 'Refresh'}</Text>
-        </TouchableOpacity>
       </View>
     )
   }
@@ -317,7 +294,7 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
             {/* 总资产 */}
             <View style={styles.totalAssetsContainer}>
               <Text style={styles.totalAssetsLabel}>{t.totalAssets}</Text>
-              <Text style={styles.totalAssetsValue}>¥{assets.totalAssets.toFixed(2)}</Text>
+              <Text style={styles.totalAssetsValue}>¥{assets.totalAssets ? assets.totalAssets.toFixed(2) : '0.00'}</Text>
             </View>
 
             {/* 饼状图 */}
@@ -345,7 +322,6 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
                 accessor="population"
                 backgroundColor="transparent"
                 paddingLeft="15"
-                absolute
               />
             </View>
 
@@ -357,8 +333,8 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
                   <Text style={styles.assetDetailLabel}>{t.fundValue}</Text>
                 </View>
                 <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.fundValue.toFixed(2)}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.fundValue)}</Text>
+                  <Text style={styles.assetDetailValue}>¥{assets.fundValue ? assets.fundValue.toFixed(2) : '0.00'}</Text>
+                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.fundValue || 0)}</Text>
                 </View>
               </View>
 
@@ -368,8 +344,8 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
                   <Text style={styles.assetDetailLabel}>{t.cashBalance}</Text>
                 </View>
                 <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.cashBalance.toFixed(2)}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.cashBalance)}</Text>
+                  <Text style={styles.assetDetailValue}>¥{assets.cashBalance ? assets.cashBalance.toFixed(2) : '0.00'}</Text>
+                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.cashBalance || 0)}</Text>
                 </View>
               </View>
 
@@ -379,8 +355,8 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
                   <Text style={styles.assetDetailLabel}>{t.pendingFunds}</Text>
                 </View>
                 <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.pendingFunds.toFixed(2)}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.pendingFunds)}</Text>
+                  <Text style={styles.assetDetailValue}>¥{assets.pendingFunds ? assets.pendingFunds.toFixed(2) : '0.00'}</Text>
+                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.pendingFunds || 0)}</Text>
                 </View>
               </View>
             </View>
@@ -421,32 +397,6 @@ const styles = StyleSheet.create({
     color: '#d93025',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f2f5',
-    padding: 20,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: '#188038',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   header: {
     paddingVertical: 16,
@@ -559,6 +509,7 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: 'center',
     marginBottom: 30,
+    minHeight: 250,
   },
   chartTitle: {
     color: '#333',

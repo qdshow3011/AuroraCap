@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image, TouchableOpacity, TextInput } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
+import HTML from 'react-native-render-html'
+
+// 公众号类型定义
+interface OfficialAccount {
+  id: string
+  name: string
+  description?: string
+  avatar?: string
+  cover_image?: string
+}
 
 // 内参文章类型定义
 interface InsiderArticle {
@@ -14,23 +25,72 @@ interface InsiderArticle {
   updated_at: string
   published_at?: string
   featured_image_url?: string
+  cover_image?: string
+  account_id?: string
+  account_name?: string
+  read_count?: number
+  like_count?: number
+  comment_count?: number
+  author?: string
+  summary?: string
 }
 
-export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' | 'en'; demo?: boolean }) {
+// 获取HTML纯文本并截取长度的辅助函数
+const getHtmlSummary = (html: string, maxLength: number = 120): string => {
+  // 移除HTML标签
+  const plainText = html
+    .replace(/<[^>]*>/g, '') // 移除所有HTML标签
+    .replace(/&nbsp;/g, ' ') // 替换空格实体
+    .replace(/&lt;/g, '<') // 替换小于号实体
+    .replace(/&gt;/g, '>') // 替换大于号实体
+    .replace(/&amp;/g, '&') // 替换与号实体
+    .replace(/&quot;/g, '"') // 替换引号实体
+    .replace(/&apos;/g, "'") // 替换单引号实体
+    .trim(); // 去除首尾空格
+  
+  // 截取长度并添加省略号
+  return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText;
+};
+
+export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'standard', onNavigateTo, onArticlePress }: { lang?: 'zh' | 'en'; demo?: boolean; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateTo?: (screen: string) => void; onArticlePress?: (article: any) => void }) {
   const [articles, setArticles] = useState<InsiderArticle[]>([])
+  const [accounts, setAccounts] = useState<OfficialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedAccount, setSelectedAccount] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   
-  // 内参类别数据
-  const categories = [
-    { id: 'all', name: lang === 'zh' ? '全部' : 'All' },
-    { id: 'research', name: lang === 'zh' ? '研究报告' : 'Research' },
-    { id: 'analysis', name: lang === 'zh' ? '分析评论' : 'Analysis' },
-    { id: 'strategy', name: lang === 'zh' ? '投资策略' : 'Strategy' },
-    { id: 'report', name: lang === 'zh' ? '业绩报告' : 'Report' },
-    { id: 'other', name: lang === 'zh' ? '其他' : 'Other' }
-  ]
+  // 根据版本调整样式
+  const getVersionStyles = () => {
+    switch (appVersion) {
+      case 'simple':
+        return {
+          fontSize: { base: 18, large: 22, small: 16 },
+          fontWeight: { regular: '400', medium: '500', bold: '700' },
+          padding: { base: 20, small: 16 },
+          borderRadius: 12,
+          showSimplified: true
+        }
+      case 'premium':
+        return {
+          fontSize: { base: 16, large: 20, small: 14 },
+          fontWeight: { regular: '400', medium: '600', bold: '800' },
+          padding: { base: 20, small: 16 },
+          borderRadius: 16,
+          showPremium: true
+        }
+      default: // standard
+        return {
+          fontSize: { base: 15, large: 18, small: 13 },
+          fontWeight: { regular: '400', medium: '500', bold: '700' },
+          padding: { base: 16, small: 12 },
+          borderRadius: 8,
+          showAll: true
+        }
+    }
+  }
+
+  const versionStyles = getVersionStyles()
 
   // 语言翻译
   const t = lang === 'zh' ? {
@@ -51,31 +111,66 @@ export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' |
     time: 'Time'
   }
 
+  // 获取公众号列表
+  const fetchAccounts = async () => {
+    try {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized')
+      }
+      
+      const { data, error } = await supabase
+        .from('wechat_official_accounts')
+        .select('id, name, description, avatar, cover_image')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      setAccounts(data || [])
+    } catch (error) {
+      console.error('Error fetching accounts:', error)
+      setAccounts([])
+    }
+  }
+
   // 获取内参文章数据
   const fetchArticles = async (isRefresh: boolean = false) => {
     try {
-      // 从Supabase获取数据，只获取3条最新的数据
+      // 从Supabase获取数据
       if (!supabase) {
         throw new Error('Supabase client not initialized')
       }
       
       let query = supabase
         .from('internal_references')
-        .select('*')
+        .select(`
+          *,
+          wechat_official_accounts(name)
+        `)
         .eq('status', 'published')
         .order('created_at', { ascending: false })
-        .range(0, 4) // 增加返回的数据量
+        .range(0, 9) // 增加返回的数据量
       
-      // 根据选中的分类进行筛选
-      if (selectedCategory !== 'all') {
-        query = query.eq('category', selectedCategory)
+      // 根据选中的公众号进行筛选
+      if (selectedAccount !== 'all') {
+        query = query.eq('account_id', selectedAccount)
       }
       
       const { data, error } = await query
       
       if (error) throw error
       
-      setArticles(data || [])
+      // 处理数据，添加account_name字段
+      const processedArticles = (data || []).map(article => ({
+        ...article,
+        account_name: article.wechat_official_accounts?.name,
+        cover_image: article.cover_image || article.featured_image_url,
+        read_count: article.read_count || 0,
+        like_count: article.like_count || 0,
+        comment_count: article.comment_count || 0
+      }))
+      
+      setArticles(processedArticles)
       
     } catch (error) {
       console.error('Error fetching articles:', error)
@@ -88,8 +183,14 @@ export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' |
 
   // 初始加载数据和分类切换时重新加载
   useEffect(() => {
+    fetchAccounts()
     fetchArticles(true)
-  }, [lang, selectedCategory])
+  }, [lang])
+
+  // 公众号切换时重新加载
+  useEffect(() => {
+    fetchArticles(true)
+  }, [selectedAccount])
 
   // 下拉刷新
   const handleRefresh = () => {
@@ -113,6 +214,32 @@ export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' |
     }
   }
 
+  // 计算相对时间（微信公众号风格）
+  const getRelativeTime = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffMins < 1) {
+      return '刚刚'
+    } else if (diffMins < 60) {
+      return `${diffMins}分钟前`
+    } else if (diffHours < 24) {
+      return `${diffHours}小时前`
+    } else if (diffDays < 7) {
+      return `${diffDays}天前`
+    } else if (diffDays < 30) {
+      return `${Math.floor(diffDays / 7)}周前`
+    } else if (diffDays < 365) {
+      return `${Math.floor(diffDays / 30)}个月前`
+    } else {
+      return `${Math.floor(diffDays / 365)}年前`
+    }
+  }
+
   // 格式化标签显示
   const formatTags = (tags: string[]) => {
     return tags.join(', ')
@@ -122,43 +249,114 @@ export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' |
     <View style={styles.container}>
       {/* 顶部标题 */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t.insiderNews}</Text>
+        <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>{t.insiderNews}</Text>
+        
+        {/* 搜索框 */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={versionStyles.fontSize.base} color="#999" style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { fontSize: versionStyles.fontSize.small }]}
+            placeholder={lang === 'zh' ? '搜索内参' : 'Search Insider'}
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        
         <View style={styles.headerIcons}>
-          <Pressable style={styles.iconButton} onPress={() => console.log('搜索')}>
-            <Text style={styles.icon}>🔍</Text>
-          </Pressable>
-          <Pressable style={styles.iconButton} onPress={() => console.log('客服')}>
-            <Text style={styles.icon}>🎧</Text>
-          </Pressable>
+          {/* 撰写内参图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={() => {
+
+            onNavigateTo && onNavigateTo('create-insider');
+          }}>
+            <Ionicons name="create-outline" size={versionStyles.fontSize.base} color="#333" />
+          </TouchableOpacity>
+          {/* 配置公众号图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={() => {
+
+            onNavigateTo && onNavigateTo('configure-accounts');
+          }}>
+            <Ionicons name="settings-outline" size={versionStyles.fontSize.base} color="#333" />
+          </TouchableOpacity>
+          {/* 草稿箱图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={() => {
+
+            onNavigateTo && onNavigateTo('draft-box');
+          }}>
+            <Ionicons name="document-text-outline" size={versionStyles.fontSize.base} color="#333" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* 分类筛选栏 */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.categoryFilter}
-        contentContainerStyle={styles.categoryFilterContent}
-        bounces={false} // 禁用弹性效果
-        automaticallyAdjustContentInsets={false} // 禁用自动调整内边距
-      >
-        {categories.map((category) => (
-          <Pressable
-            key={category.id}
-            style={styles.categoryItem}
-            onPress={() => setSelectedCategory(category.id)}
+      {/* 微信公众号风格的顶部常看公众号区块 */}
+      {accounts.length > 0 && (
+        <View style={styles.wechatAccountsSection}>
+          <Text style={styles.sectionTitle}>{lang === 'zh' ? '常看' : 'Following'}</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.accountsScrollContent}
+            bounces={true}
           >
-            <Text 
-              style={[
-                styles.categoryText,
-                selectedCategory === category.id && styles.categoryTextSelected
-              ]}
+            <Pressable
+              key="all"
+              style={styles.accountCard}
+              onPress={() => setSelectedAccount('all')}
             >
-              {category.name}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <View style={[
+                styles.accountAvatar,
+                selectedAccount === 'all' && styles.accountAvatarSelected,
+                { backgroundColor: '#4CAF50' } // 使用绿色作为"全部"选项的底色
+              ]}>
+                <Text style={[
+                  styles.avatarText,
+                  { color: '#FFFFFF' }
+                ]}>全</Text>
+              </View>
+              <Text style={[styles.accountNameText, selectedAccount === 'all' && styles.accountNameTextSelected]}>
+                {lang === 'zh' ? '全部' : 'All'}
+              </Text>
+            </Pressable>
+            {accounts.map((account) => {
+              // 随机颜色数组：红橙黄绿青蓝紫
+              const colors = ['#FF4444', '#FF8800', '#FFBB00', '#4CAF50', '#00BCD4', '#2196F3', '#9C27B0'];
+              // 根据account.id生成固定的随机索引，确保同一公众号颜色一致
+              const colorIndex = account.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+              const randomColor = colors[colorIndex];
+              
+              return (
+                <Pressable
+                  key={account.id}
+                  style={styles.accountCard}
+                  onPress={() => setSelectedAccount(account.id)}
+                >
+                  <View style={[
+                    styles.accountAvatar,
+                    selectedAccount === account.id && styles.accountAvatarSelected,
+                    !account.avatar && { backgroundColor: randomColor }
+                  ]}>
+                    {account.avatar ? (
+                      <Image 
+                        source={{ uri: account.avatar }} 
+                        style={styles.accountAvatarImage} 
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={[
+                        styles.avatarText,
+                        { color: '#FFFFFF' }
+                      ]}>{account.name.charAt(0)}</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.accountNameText, selectedAccount === account.id && styles.accountNameTextSelected]}>
+                    {account.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* 快讯列表 */}
       <ScrollView 
@@ -178,51 +376,78 @@ export default function InsiderNewsScreen({ lang = 'zh', demo }: { lang?: 'zh' |
             <Text style={styles.emptyText}>{loading ? t.loading : t.noNews}</Text>
           </View>
         ) : (
-          articles.map((article) => (
-            <Pressable key={article.id} style={styles.newsItem}>
-              {/* 图标+分类 */}
-              <View style={styles.categorySection}>
-                <Text style={styles.categoryIcon}>📰</Text>
-                <View style={styles.categoryTag}>
-                  <Text style={styles.categoryText}>
-                    {article.category === 'research' ? '研究报告' : 
-                     article.category === 'analysis' ? '分析评论' : 
-                     article.category === 'strategy' ? '投资策略' : 
-                     article.category === 'report' ? '业绩报告' : '其他'}
+          articles.map((article) => {
+            // 随机颜色数组：红橙黄绿青蓝紫
+            const colors = ['#FF4444', '#FF8800', '#FFBB00', '#4CAF50', '#00BCD4', '#2196F3', '#9C27B0'];
+            // 根据article.account_id或article.id生成固定的随机索引
+            const colorIndex = (article.account_id || article.id).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+            const randomColor = colors[colorIndex];
+            
+            return (
+              <Pressable key={article.id} style={styles.newsItem} onPress={() => {
+                // 打开文章详情
+                console.log('打开文章详情:', article.id);
+                if (onArticlePress) {
+                  onArticlePress(article);
+                }
+              }}>
+                {/* 公众号信息和时间 */}
+                <View style={styles.wechatHeader}>
+                  <View style={styles.accountInfo}>
+                    <View style={[
+                      styles.accountAvatar,
+                      { backgroundColor: randomColor }
+                    ]}>
+                      <Text style={[
+                        styles.avatarText,
+                        { color: '#FFFFFF' }
+                      ]}>
+                        {article.account_name?.charAt(0) || '公'}
+                      </Text>
+                    </View>
+                    <Text style={styles.accountName}>{article.account_name || '未知公众号'}</Text>
+                  </View>
+                  <Text style={styles.relativeTime}>
+                    {getRelativeTime(article.published_at || article.created_at)}
                   </Text>
                 </View>
-              </View>
               
-              {/* 大图片 */}
-              <View style={styles.articleWithImage}>
-                <Image 
-                  source={{ uri: article.featured_image_url || 'https://picsum.photos/300/200' }} 
-                  style={styles.featuredImage} 
-                  resizeMode="cover"
-                />
-              </View>
-              
-              {/* 文章内容 */}
-              <View style={styles.articleContent}>
-                {/* 标题 */}
+                {/* 文章标题 */}
                 <Text style={styles.newsTitle} numberOfLines={2}>
                   {article.title}
                 </Text>
-                
-                {/* 摘要 */}
-                <Text style={styles.newsBody} numberOfLines={4}>
-                  {article.content.substring(0, 150) + '...'}
+              
+                {/* 文章摘要 */}
+                <Text style={styles.newsBody} numberOfLines={3}>
+                  {getHtmlSummary(article.summary || article.content)}
                 </Text>
-                
-                {/* 时间 */}
-                <View style={styles.newsFooter}>
-                  <Text style={styles.newsTime}>
-                    {formatDate(article.published_at || article.created_at)}
-                  </Text>
+              
+                {/* 大图片 */}
+                {article.cover_image && (
+                  <View style={styles.articleWithImage}>
+                    <Image 
+                      source={{ uri: article.cover_image }} 
+                      style={styles.featuredImage} 
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+              
+                {/* 统计数据 */}
+                <View style={styles.statsContainer}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statText}>{article.read_count || 0} 阅读</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statText}>{article.like_count || 0} 赞</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statText}>{article.comment_count || 0} 评论</Text>
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          ))
+              </Pressable>
+            );
+          })
         )}
 
         {/* 底部留白 */}
@@ -239,8 +464,9 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 12, // 缩小左右缝隙
-    paddingVertical: 16,
-    // 取消底色，使用app背景色
+    paddingTop: 40,
+    paddingBottom: 16,
+    backgroundColor: '#f0f2f5',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -249,6 +475,24 @@ const styles = StyleSheet.create({
     color: '#333', // 黑色标题
     fontSize: 24,
     fontWeight: '700',
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f2f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 14,
+    color: '#333',
   },
   headerIcons: {
     flexDirection: 'row',
@@ -264,67 +508,60 @@ const styles = StyleSheet.create({
   },
   newsList: {
     flex: 1,
-    paddingHorizontal: 12, // 只设置左右内边距
-    paddingBottom: 12, // 设置底部内边距
-    // 移除顶部内边距，减少与分类筛选栏的间距
+    paddingHorizontal: 0.2, // 与手机边界0.2px
+    paddingBottom: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 60,
   },
   emptyText: {
-    color: '#666',
+    color: '#999',
     fontSize: 16,
   },
   newsItem: {
     backgroundColor: '#fff',
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 8,
+    borderBottomColor: '#f5f5f5',
   },
-  categorySection: {
+  // 微信公众号风格的头部
+  wechatHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  categoryIcon: {
-    fontSize: 16,
-    marginRight: 6,
+  accountInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  categoryTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  accountAvatar: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#1AAD19',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
-  categoryText: {
-    color: '#1976d2',
-    fontSize: 12,
+  avatarText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
-  // 带图片的文章布局
-  articleWithImage: {
-    width: '100%',
+  accountName: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
-  articleContent: {
-    width: '100%',
-  },
-  articleWithoutImage: {
-    width: '100%',
-  },
-  featuredImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 16,
+  relativeTime: {
+    fontSize: 12,
+    color: '#999',
   },
   newsTitle: {
     color: '#333',
@@ -335,64 +572,83 @@ const styles = StyleSheet.create({
   },
   newsBody: {
     color: '#666',
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 22,
     marginBottom: 12,
   },
-  newsFooter: {
+  // 带图片的文章布局
+  articleWithImage: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  featuredImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 4,
+  },
+  // 统计数据样式
+  statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
   },
-  newsTime: {
-    color: '#666',
+  statItem: {
+    marginRight: 16,
+  },
+  statText: {
     fontSize: 12,
+    color: '#999',
   },
-  newsAuthor: {
-    color: '#666',
-    fontSize: 12,
+  // 微信公众号风格的顶部区块样式
+  wechatAccountsSection: {
+    paddingTop: 8,
+    paddingBottom: 12,
+    marginBottom: 8,
   },
-  loadMoreButton: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadMoreText: {
-    color: '#1976d2',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // 分类筛选样式
-  categoryFilter: {
-    backgroundColor: '#f0f2f5',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    height: 21, // 明确设置高度为1行文字+边框
-    maxHeight: 21, // 限制最大高度
-    marginBottom: 12, // 在底部留出12px的空间
-  },
-  categoryFilterContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 0, // 移除上下内边距
-    height: 20, // 内容高度（文字高度）
-    justifyContent: 'center', // 垂直居中内容
-  },
-  categoryItem: {
-    marginRight: 20,
-    alignItems: 'center',
-    justifyContent: 'center', // 垂直居中内容
-    paddingVertical: 0, // 移除上下内边距
-    minHeight: 20, // 确保最小点击区域
-    height: 20, // 与文字高度一致
-  },
-  categoryText: {
-    fontSize: 16,
-    color: '#666',
+  sectionTitle: {
+    fontSize: 10,
     fontWeight: '400',
-    lineHeight: 20, // 确保文字垂直居中
-  },
-  categoryTextSelected: {
     color: '#333',
-    fontWeight: '700',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  accountsScrollContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+  },
+  accountCard: {
+    alignItems: 'center',
+    marginHorizontal: 4,
+    paddingHorizontal: 8,
+    width: 80,
+  },
+  accountAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  accountAvatarSelected: {
+    borderColor: '#1AAD19',
+  },
+  accountAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  accountNameText: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 14,
+    maxWidth: '100%',
+  },
+  accountNameTextSelected: {
+    color: '#1AAD19',
+    fontWeight: '500',
   },
 })

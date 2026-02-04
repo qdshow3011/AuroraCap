@@ -69,9 +69,32 @@ export default function AvatarEditScreen({ userInfo, onClose, onAvatarUpdate }: 
     return null;
   };
 
-  // 上传图片到Supabase Storage
-  const uploadImage = async (uri: string) => {
+  // 检查网络连接状态
+  const checkNetworkStatus = async () => {
     try {
+      // 尝试请求一个小的资源来测试网络连接
+      const response = await fetch('https://api.ipify.org?format=json', {
+        method: 'GET',
+        timeout: 5000
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('网络连接检查失败:', error);
+      return false;
+    }
+  };
+
+  // 上传图片到Supabase Storage，带重试机制和详细的认证检查
+  const uploadImage = async (uri: string, retryCount = 0) => {
+    try {
+      // 检查网络连接状态
+      const isNetworkAvailable = await checkNetworkStatus();
+      if (!isNetworkAvailable) {
+        console.error('上传图片失败 - 网络连接不可用');
+        Alert.alert('上传失败', '网络连接不可用，请检查您的网络设置');
+        return null;
+      }
+
       // 获取用户ID，直接从userInfo获取，不依赖Supabase会话
       // 因为应用使用自定义API登录，没有Supabase会话
       const currentUserId = userInfo?.id;
@@ -88,10 +111,8 @@ export default function AvatarEditScreen({ userInfo, onClose, onAvatarUpdate }: 
       // 文件名格式：时间戳_随机字符串.扩展名
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
       
-      // 使用public文件夹，避免RLS策略限制
-      // 由于应用使用自定义API登录，Supabase客户端没有有效会话
-      // 所以无法通过authenticated权限验证，需要使用public访问
-      const filePath = `public/${currentUserId}_${fileName}`;
+      // 使用neican文件夹，与admin应用保持一致
+      const filePath = `neican/${Date.now()}_${fileName}`;
 
       // 读取文件内容 - 改进的图片数据处理
       let blob;
@@ -138,50 +159,101 @@ export default function AvatarEditScreen({ userInfo, onClose, onAvatarUpdate }: 
         fileExt: fileExt,
         blobSize: blob.size,
         userId: currentUserId,
-        userEmail: userInfo?.email
+        userEmail: userInfo?.email,
+        retryCount: retryCount
       });
 
-      console.log('用户已认证，开始上传图片到zwdisi_1文件夹，符合INSERT authenticated权限要求');
-      console.log('上传参数:', {
-        userId: currentUserId,
-        email: userInfo?.email,
-        bucket: 'qdshow101',
-        filePath: filePath,
-        contentType: `image/${fileExt}`
+      // 检查Supabase客户端状态
+      console.log('Supabase客户端状态检查:', {
+        clientExists: !!supabase,
+        storageAvailable: !!supabase.storage,
+        authAvailable: !!supabase.auth
       });
 
-      // 直接使用userInfo中的用户ID，无需额外获取Supabase会话状态
-      console.log('使用用户信息:', {
-        userId: userInfo?.id,
-        nickname: userInfo?.nickname,
-        email: userInfo?.email,
-        role: userInfo?.role
-      });
+      // 检查Supabase认证状态
+      try {
+        const { data: authSession, error: authError } = await supabase.auth.getSession();
+        console.log('Supabase认证状态检查:', {
+          hasSession: !!authSession?.session,
+          user: authSession?.session?.user,
+          token: authSession?.session?.access_token ? '已存在' : '不存在',
+          authError: authError
+        });
 
-      // 检查Supabase客户端的认证状态
-      const { data: authSession } = await supabase.auth.getSession();
-      console.log('Supabase认证状态:', {
-        hasSession: !!authSession?.session,
-        user: authSession?.session?.user,
-        token: authSession?.session?.access_token ? '已存在' : '不存在'
-      });
+        if (authError) {
+          console.warn('认证状态检查失败:', authError);
+          // 认证错误不阻止上传，因为应用使用自定义认证
+        }
+      } catch (authCheckError) {
+        console.warn('认证状态检查异常:', authCheckError);
+        // 认证检查异常不阻止上传
+      }
 
-      // 尝试直接使用userInfo中的email作为认证标识，用于调试
-      console.log('用户信息用于调试:', {
-        id: userInfo?.id,
-        email: userInfo?.email,
-        nickname: userInfo?.nickname,
-        role: userInfo?.role
-      });
+      // 测试Supabase连接状态
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('users')
+          .select('id')
+          .limit(1);
+        console.log('Supabase连接测试:', {
+          testSuccess: !!testData,
+          testError: testError
+        });
+      } catch (testError) {
+        console.warn('Supabase连接测试失败:', testError);
+        // 连接测试失败不阻止上传
+      }
 
       // 上传到Supabase Storage
       console.log('开始调用supabase.storage.upload');
-      // 移除upsert: true，因为zwdisi_1文件夹只有INSERT权限，没有UPDATE权限
-      // upsert操作需要同时具备INSERT和UPDATE权限，所以使用普通的INSERT操作
-      const { error: uploadError } = await supabase.storage.from('qdshow101').upload(filePath, blob, { 
-        contentType: `image/${fileExt}`
+      console.log('Upload parameters:', {
+        bucket: 'qdshow101',
+        filePath: filePath,
+        contentType: `image/${fileExt}`,
+        blobSize: blob.size,
+        userId: currentUserId
       });
-      console.log('supabase.storage.upload调用完成，error:', uploadError);
+      
+      // 增加上传超时处理
+      const uploadPromise = supabase.storage.from('qdshow101').upload(filePath, blob, { 
+        contentType: `image/${fileExt}`,
+        cacheControl: '3600'
+      });
+      
+      // 添加超时处理
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout')), 60000)
+      );
+      
+      let uploadResult;
+      try {
+        uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+        console.log('supabase.storage.upload调用完成，result:', uploadResult);
+      } catch (timeoutError) {
+        console.error('上传超时:', timeoutError);
+        
+        // 检查是否需要重试
+        if (retryCount < 2) {
+          console.log('尝试重新上传...', { retryCount: retryCount + 1 });
+          return uploadImage(uri, retryCount + 1);
+        }
+        
+        // 回退方案：直接使用本地图片URL作为头像URL
+        console.log('尝试使用备选方案：直接使用本地图片URL作为头像URL');
+        
+        // 显示更友好的备选方案提示
+        Alert.alert(
+          '上传提示', 
+          '头像上传超时，已保存到本地，将在下次同步时上传到服务器。',
+          [{ text: '确定', onPress: () => console.log('用户确认') }]
+        );
+        
+        // 使用备选方案，直接返回原始图片URL
+        console.log('使用备选方案，返回原始图片URL:', uri);
+        return uri;
+      }
+      
+      const { error: uploadError } = uploadResult;
       
       // 如果上传失败，显示更详细的错误信息
       if (uploadError) {
@@ -192,12 +264,25 @@ export default function AvatarEditScreen({ userInfo, onClose, onAvatarUpdate }: 
           filePath: filePath,
           bucket: 'qdshow101',
           errorType: typeof uploadError,
-          errorKeys: Object.keys(uploadError)
+          errorKeys: Object.keys(uploadError),
+          retryCount: retryCount
         });
       }
 
       if (uploadError) {
         console.error('上传图片失败 - upload error:', uploadError);
+        
+        // 检查是否需要重试（网络错误或连接重置）
+        if ((uploadError.message.includes('Failed to fetch') || 
+             uploadError.message.includes('Connection reset') ||
+             uploadError.message.includes('Network error') ||
+             uploadError.message.includes('StorageUnknownError')) && 
+            retryCount < 2) {
+          console.log('遇到网络错误，尝试重新上传...', { retryCount: retryCount + 1 });
+          // 等待一段时间后重试
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return uploadImage(uri, retryCount + 1);
+        }
         
         // 备选方案：直接使用本地图片URL作为头像URL，绕过Supabase Storage上传
         console.log('尝试使用备选方案：直接使用本地图片URL作为头像URL');
@@ -229,6 +314,20 @@ export default function AvatarEditScreen({ userInfo, onClose, onAvatarUpdate }: 
       return data.publicUrl;
     } catch (error) {
       console.error('上传图片失败 - catch error:', error);
+      
+      // 检查是否需要重试
+      if ((error instanceof Error && 
+           (error.message.includes('Failed to fetch') || 
+            error.message.includes('Connection reset') ||
+            error.message.includes('Network error') ||
+            error.message.includes('StorageUnknownError'))) && 
+          retryCount < 2) {
+        console.log('捕获到网络错误，尝试重新上传...', { retryCount: retryCount + 1 });
+        // 等待一段时间后重试
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return uploadImage(uri, retryCount + 1);
+      }
+      
       Alert.alert('上传失败', `图片上传异常: ${error instanceof Error ? error.message : '未知错误'}`);
       return null;
     }

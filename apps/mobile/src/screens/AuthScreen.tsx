@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, Pressable, TextInput } from 'react-native'
+import { View, Text, Pressable, TextInput, TouchableOpacity, Alert } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { registerUser, RegisterData } from '../api/auth/register'
 import { loginUser, LoginData } from '../api/auth/login'
@@ -16,6 +16,7 @@ export default function AuthScreen({ lang, setLang, onAuthed, initialTab = 'logi
   const [tab, setTab] = useState<'login' | 'register'>(initialTab)
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [idNumber, setIdNumber] = useState('')
@@ -153,8 +154,17 @@ export default function AuthScreen({ lang, setLang, onAuthed, initialTab = 'logi
         </View>
       )}
       
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-        <View style={{ width: '100%', maxWidth: 400, gap: 12 }}>
+      <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
+        {/* Logo and Title - Only show on login page */}
+        {isLogin && (
+          <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 32 }}>
+            <Text style={{ color: '#10b981', fontSize: 36, fontWeight: 'bold', marginBottom: 8 }}>Aurora</Text>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '500' }}>Intelligent Fund</Text>
+          </View>
+        )}
+        
+        {/* Form Container */}
+        <View style={{ width: '100%', maxWidth: 400, gap: 12, marginBottom: 40 }}>
           {isLogin ? (
             <React.Fragment>
               {/* Login Title */}
@@ -181,22 +191,38 @@ export default function AuthScreen({ lang, setLang, onAuthed, initialTab = 'logi
               />
               
               <Text style={{ color: '#9ca3af', marginTop: 12 }}>{t.password}</Text>
-              <TextInput 
-                value={password} 
-                onChangeText={setPassword} 
-                placeholder={t.password} 
-                placeholderTextColor="#6b7280" 
-                secureTextEntry={true}
-                style={{ 
-                  backgroundColor: '#1f2937', 
-                  color: '#fff', 
-                  padding: 14, 
-                  borderRadius: 8, 
-                  borderWidth: 1, 
-                  borderColor: '#374151',
-                  fontSize: 16
-                }} 
-              />
+              <View style={{ position: 'relative' }}>
+                <TextInput 
+                  value={password} 
+                  onChangeText={setPassword} 
+                  placeholder={t.password} 
+                  placeholderTextColor="#6b7280" 
+                  secureTextEntry={!showPassword}
+                  style={{ 
+                    backgroundColor: '#1f2937', 
+                    color: '#fff', 
+                    padding: 14, 
+                    borderRadius: 8, 
+                    borderWidth: 1, 
+                    borderColor: '#374151',
+                    fontSize: 16,
+                    paddingRight: 48
+                  }} 
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)} 
+                  style={{ 
+                    position: 'absolute', 
+                    right: 12, 
+                    top: '50%', 
+                    transform: [{ translateY: -12 }]
+                  }}
+                >
+                  <Text style={{ color: '#9ca3af', fontSize: 14 }}>
+                    {showPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               
               {/* Error Message */}
               {!!error && (
@@ -291,22 +317,38 @@ export default function AuthScreen({ lang, setLang, onAuthed, initialTab = 'logi
               />
               
               <Text style={{ color: '#9ca3af', marginTop: 12 }}>{t.password}</Text>
-              <TextInput 
-                value={password} 
-                onChangeText={setPassword} 
-                placeholder={t.password} 
-                placeholderTextColor="#6b7280" 
-                secureTextEntry={true}
-                style={{ 
-                  backgroundColor: '#1f2937', 
-                  color: '#fff', 
-                  padding: 14, 
-                  borderRadius: 8, 
-                  borderWidth: 1, 
-                  borderColor: '#374151',
-                  fontSize: 16
-                }} 
-              />
+              <View style={{ position: 'relative' }}>
+                <TextInput 
+                  value={password} 
+                  onChangeText={setPassword} 
+                  placeholder={t.password} 
+                  placeholderTextColor="#6b7280" 
+                  secureTextEntry={!showPassword}
+                  style={{ 
+                    backgroundColor: '#1f2937', 
+                    color: '#fff', 
+                    padding: 14, 
+                    borderRadius: 8, 
+                    borderWidth: 1, 
+                    borderColor: '#374151',
+                    fontSize: 16,
+                    paddingRight: 48
+                  }} 
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)} 
+                  style={{ 
+                    position: 'absolute', 
+                    right: 12, 
+                    top: '50%', 
+                    transform: [{ translateY: -12 }]
+                  }}
+                >
+                  <Text style={{ color: '#9ca3af', fontSize: 14 }}>
+                    {showPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               
               <Text style={{ color: '#9ca3af', marginTop: 12 }}>{t.inviteCode}</Text>
               <TextInput 
@@ -358,6 +400,25 @@ export default function AuthScreen({ lang, setLang, onAuthed, initialTab = 'logi
             </React.Fragment>
           )}
         </View>
+      </View>
+      
+      {/* Help Section - Always at the bottom */}
+      <View style={{ marginBottom: 20, textAlign: 'center', width: '100%' }}>
+        <Text style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center' }}>
+          {lang === 'zh' ? '需要帮助吗？' : 'Need help?'} 
+          <Text 
+            style={{ color: '#0a84ff', fontWeight: '500' }} 
+            onPress={() => {
+              Alert.alert(
+                lang === 'zh' ? '联系我们' : 'Contact Us',
+                `${lang === 'zh' ? '客服电话：' : 'Customer Service Phone: '}400-123-4567\n${lang === 'zh' ? '微信号：' : 'WeChat: '}AuroraFund_Support`,
+                [{ text: lang === 'zh' ? '确定' : 'OK', style: 'default' }]
+              )
+            }}
+          >
+            {lang === 'zh' ? '联系我们' : 'Contact Us'}
+          </Text>
+        </Text>
       </View>
     </View>
   )

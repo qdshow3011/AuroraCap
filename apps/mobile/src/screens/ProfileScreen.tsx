@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-nati
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onEditAccountInfo, onNavigateToAvatarEdit, observerHoldings, observerTransactions, isDemo, onNavigateToAssetStatus, onNavigateToFundTransactions, onNavigateToSubscriptionRedemptionRecords, onNavigateToCustomerService, onNavigateToMessageCenter, onNavigateToApplicationProcessing, onNavigateToMyCustomers, onNavigateToFunctionSettings }: { userInfo?: any; onSwitchAccount: () => void; onLogout: () => void; onEditAccountInfo: () => void; onNavigateToAvatarEdit?: () => void; observerHoldings?: any[]; observerTransactions?: any[]; isDemo?: boolean; onNavigateToAssetStatus?: () => void; onNavigateToFundTransactions?: () => void; onNavigateToSubscriptionRedemptionRecords?: () => void; onNavigateToCustomerService?: () => void; onNavigateToMessageCenter?: (category?: 'all' | 'system' | 'investment') => void; onNavigateToApplicationProcessing?: () => void; onNavigateToMyCustomers?: () => void; onNavigateToFunctionSettings?: () => void }) {
+export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onEditAccountInfo, onNavigateToAvatarEdit, observerHoldings, observerTransactions, isDemo, onNavigateToAssetStatus, onNavigateToFundTransactions, onNavigateToSubscriptionRedemptionRecords, onNavigateToCustomerService, onNavigateToMessageCenter, onNavigateToApplicationProcessing, onNavigateToMyCustomers, onNavigateToFunctionSettings, onNavigateToSystemSettings, onNavigateToHelpCenter, onNavigateToSecurityCenter, onNavigateToAboutUs, appVersion = 'standard', onNavigateToVersionSwitch, lang = 'zh' }: { userInfo?: any; onSwitchAccount: () => void; onLogout: () => void; onEditAccountInfo: () => void; onNavigateToAvatarEdit?: () => void; observerHoldings?: any[]; observerTransactions?: any[]; isDemo?: boolean; onNavigateToAssetStatus?: () => void; onNavigateToFundTransactions?: () => void; onNavigateToSubscriptionRedemptionRecords?: () => void; onNavigateToCustomerService?: () => void; onNavigateToMessageCenter?: (category?: 'all' | 'system' | 'investment') => void; onNavigateToApplicationProcessing?: () => void; onNavigateToMyCustomers?: () => void; onNavigateToFunctionSettings?: () => void; onNavigateToSystemSettings?: () => void; onNavigateToHelpCenter?: () => void; onNavigateToSecurityCenter?: () => void; onNavigateToAboutUs?: () => void; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateToVersionSwitch?: () => void; lang?: 'zh' | 'en' }) {
   // 获取角色显示名称
   const getRoleDisplayName = (role?: string) => {
     switch (role) {
@@ -16,6 +16,83 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
         return '合伙人';
       default:
         return '未知';
+    }
+  };
+  
+  // 根据版本调整样式
+  const getVersionStyles = () => {
+    switch (appVersion) {
+      case 'simple':
+        return {
+          fontSize: {
+            base: 18,
+            large: 24,
+            small: 16
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '500',
+            bold: '700'
+          },
+          padding: {
+            base: 20,
+            small: 16
+          },
+          borderRadius: 12,
+          showSimplified: true
+        };
+      case 'premium':
+        return {
+          fontSize: {
+            base: 16,
+            large: 20,
+            small: 14
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '600',
+            bold: '800'
+          },
+          padding: {
+            base: 20,
+            small: 16
+          },
+          borderRadius: 16,
+          showPremium: true
+        };
+      default: // standard
+        return {
+          fontSize: {
+            base: 15,
+            large: 18,
+            small: 13
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '500',
+            bold: '700'
+          },
+          padding: {
+            base: 16,
+            small: 12
+          },
+          borderRadius: 8,
+          showAll: true
+        };
+    }
+  };
+  
+  const versionStyles = getVersionStyles();
+  
+  // 版本差异化标题
+  const getVersionTitle = () => {
+    switch (appVersion) {
+      case 'simple':
+        return '我的';
+      case 'premium':
+        return '尊享中心';
+      default:
+        return '我的';
     }
   };
   
@@ -125,22 +202,37 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
             </View>
           </Pressable>
           <View style={styles.userDetails}>
-            <Text style={styles.nickname}>{userData.nickname}</Text>
-            <Text style={styles.clientId}>客户号: {userData.clientId}</Text>
+            <Text style={[styles.nickname, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>
+              {userData.nickname}
+            </Text>
+            <Text style={[styles.clientId, { fontSize: versionStyles.fontSize.small }]}>
+              {lang === 'zh' ? '客户号: ' : 'Client ID: '}{userData.clientId}
+            </Text>
+            {/* 尊享版显示会员标识 */}
+            {appVersion === 'premium' && (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumBadgeText}>
+                  {lang === 'zh' ? '尊享会员' : 'Premium Member'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         <Pressable style={styles.accountInfoButton} onPress={onEditAccountInfo}>
-          <Text style={styles.accountInfoText}>账号信息</Text>
+          <Text style={styles.accountInfoText}>{lang === 'zh' ? '账号信息' : 'Account Info'}</Text>
           <Text style={styles.accountInfoArrow}>›</Text>
         </Pressable>
       </View>
 
       {/* 可滚动内容区 */}
       <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
-        {/* 功能管理区块 */}
-        <View style={styles.functionManagementSection}>
-          <Text style={styles.sectionTitle}>功能管理（{getRoleDisplayName(userInfo?.role)}）</Text>
-          <View style={styles.functionGrid}>
+        {/* 功能管理区块 - 标准和尊享版显示，简易版隐藏 */}
+        {appVersion !== 'simple' && (
+          <View style={styles.functionManagementSection}>
+            <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>
+              {lang === 'zh' ? '功能管理' : 'Function Management'}（{getRoleDisplayName(userInfo?.role)}）
+            </Text>
+            <View style={styles.functionGrid}>
             {/* 调试信息 */}
             {/* {userInfo && (
               <View style={styles.debugInfo}>
@@ -225,23 +317,31 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
               <>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToAssetStatus?.()}>
                   <Text style={styles.functionIcon}>💰</Text>
-                  <Text style={styles.functionName}>资产状况</Text>
+                  <Text style={[styles.functionName, { fontSize: versionStyles.fontSize.small }]}>
+                    {lang === 'zh' ? '资产状况' : 'Asset Status'}
+                  </Text>
                 </Pressable>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToFundTransactions?.()}>
                   <Text style={styles.functionIcon}>💸</Text>
-                  <Text style={styles.functionName}>资金往来</Text>
+                  <Text style={[styles.functionName, { fontSize: versionStyles.fontSize.small }]}>
+                    {lang === 'zh' ? '资金往来' : 'Fund Transactions'}
+                  </Text>
                 </Pressable>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToSubscriptionRedemptionRecords?.()}>
                   <Text style={styles.functionIcon}>📋</Text>
-                  <Text style={styles.functionName}>交易记录</Text>
+                  <Text style={[styles.functionName, { fontSize: versionStyles.fontSize.small }]}>
+                    {lang === 'zh' ? '交易记录' : 'Transaction Records'}
+                  </Text>
                 </Pressable>
               </>
             )}
           </View>
         </View>
+      )}
 
-        {/* 消息通知区块 */}
-        <View style={styles.notificationSection}>
+        {/* 消息通知区块 - 标准和尊享版显示，简易版隐藏 */}
+        {appVersion !== 'simple' && (
+          <View style={styles.notificationSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>消息通知</Text>
             <Pressable onPress={() => onNavigateToMessageCenter?.()}>
@@ -269,86 +369,62 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
                 <View style={styles.unreadDot}></View>
               </View>
               <View style={styles.notificationContent}>
-                <Text style={styles.notificationTitle}>投资提示</Text>
-                <Text style={styles.notificationMessage}>市场波动较大，请注意风险</Text>
-                <Text style={styles.notificationTime}>2小时前</Text>
+                <Text style={[styles.notificationTitle, { fontSize: versionStyles.fontSize.base }]}>投资提示</Text>
+                <Text style={[styles.notificationMessage, { fontSize: versionStyles.fontSize.small }]}>
+                  {lang === 'zh' ? '市场波动较大，请注意风险' : 'Market volatility is high, please be cautious'}
+                </Text>
+                <Text style={[styles.notificationTime, { fontSize: versionStyles.fontSize.small }]}>2小时前</Text>
               </View>
             </View>
             <Text style={styles.notificationArrow}>›</Text>
           </Pressable>
         </View>
+      )}
 
         {/* 设置菜单 */}
         <View style={styles.moduleSection}>
           {/* 设置主菜单 */}
-          <Pressable style={styles.moduleItem}>
+          <Pressable style={styles.moduleItem} onPress={() => onNavigateToSystemSettings?.()}>
             <View style={styles.moduleLeft}>
               <Text style={styles.moduleIcon}>⚙️</Text>
-              <Text style={styles.moduleTitle}>设置</Text>
+              <Text style={[styles.moduleTitle, { fontSize: versionStyles.fontSize.base }]}>
+                {lang === 'zh' ? '系统设置' : 'System Settings'}
+              </Text>
             </View>
             <Text style={styles.moduleArrow}>›</Text>
           </Pressable>
 
-          {/* 分割线 */}
-          <View style={styles.divider} />
-
-          {/* 邀请码模块 */}
-          <Pressable style={styles.moduleItem}>
+          {/* 版本切换模块 */}
+          <Pressable style={styles.moduleItem} onPress={() => {
+            console.log('版本切换 - 跳转到版本切换页面');
+            onNavigateToVersionSwitch?.();
+          }}>
             <View style={styles.moduleLeft}>
-              <Text style={styles.moduleIcon}>🎁</Text>
-              <Text style={styles.moduleTitle}>邀请码</Text>
-            </View>
-            <View style={styles.moduleRight}>
-              <Text style={styles.moduleContent}>{userData.invitationCode}</Text>
-              <Text style={styles.moduleArrow}>›</Text>
-            </View>
-          </Pressable>
-
-          {/* 系统设置模块 */}
-          <Pressable style={styles.moduleItem}>
-            <View style={styles.moduleLeft}>
-              <Text style={styles.moduleIcon}>⚙️</Text>
-              <Text style={styles.moduleTitle}>系统设置</Text>
+              <Text style={styles.moduleIcon}>🔄</Text>
+              <Text style={[styles.moduleTitle, { fontSize: versionStyles.fontSize.base }]}>
+                {lang === 'zh' ? '版本切换' : 'Version Switch'}
+              </Text>
             </View>
             <Text style={styles.moduleArrow}>›</Text>
           </Pressable>
 
-          {/* 安全中心模块 */}
-          <Pressable style={styles.moduleItem}>
-            <View style={styles.moduleLeft}>
-              <Text style={styles.moduleIcon}>🔒</Text>
-              <Text style={styles.moduleTitle}>安全中心</Text>
-            </View>
-            <Text style={styles.moduleArrow}>›</Text>
-          </Pressable>
 
-          {/* 帮助中心模块 */}
-          <Pressable style={styles.moduleItem}>
-            <View style={styles.moduleLeft}>
-              <Text style={styles.moduleIcon}>❓</Text>
-              <Text style={styles.moduleTitle}>帮助中心</Text>
-            </View>
-            <Text style={styles.moduleArrow}>›</Text>
-          </Pressable>
+          
 
-          {/* 关于我们模块 */}
-          <Pressable style={styles.moduleItem}>
-            <View style={styles.moduleLeft}>
-              <Text style={styles.moduleIcon}>ℹ️</Text>
-              <Text style={styles.moduleTitle}>关于我们</Text>
-            </View>
-            <Text style={styles.moduleArrow}>›</Text>
-          </Pressable>
         </View>
 
         {/* 底部按钮区 */}
         <View style={styles.buttonSection}>
           <Pressable style={styles.button} onPress={onSwitchAccount}>
-            <Text style={styles.buttonText}>切换账号</Text>
+            <Text style={[styles.buttonText, { fontSize: versionStyles.fontSize.base }]}>
+              {lang === 'zh' ? '切换账号' : 'Switch Account'}
+            </Text>
           </Pressable>
           
           <Pressable style={[styles.button, styles.logoutButton]} onPress={onLogout}>
-            <Text style={[styles.buttonText, styles.logoutButtonText]}>退出登录</Text>
+            <Text style={[styles.buttonText, styles.logoutButtonText, { fontSize: versionStyles.fontSize.base }]}>
+              {lang === 'zh' ? '退出登录' : 'Logout'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -366,8 +442,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 12, // 缩小左右缝隙
-    paddingVertical: 16,
-    backgroundColor: 'transparent', // 取消黑色底色
+    paddingTop: 40,
+    paddingBottom: 16,
+    backgroundColor: '#f0f2f5',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0', // 浅色边框
   },
@@ -669,5 +746,18 @@ const styles = StyleSheet.create({
   notificationArrow: {
     color: '#999',
     fontSize: 20,
+  },
+  // 尊享会员标识样式
+  premiumBadge: {
+    backgroundColor: '#f0f4ff',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  premiumBadgeText: {
+    color: '#4a90e2',
+    fontSize: 12,
+    fontWeight: '600',
   },
 })

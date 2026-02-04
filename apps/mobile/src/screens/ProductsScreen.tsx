@@ -1,826 +1,572 @@
-import { useState, useEffect, useRef } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, TouchableOpacity } from 'react-native'
-import { supabase } from '../lib/supabase'
-import ProductDetail from './ProductDetail'
-import AssetStatusScreen from './AssetStatusScreen'
-import { messageGenerator } from '../utils/message-generator'
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-// 我的资产类型定义
-interface MyAssets {
-  totalAssets: number
-  fundValue: number
-  cashBalance: number
-  pendingFunds: number // 在途资金
+// 基金产品类型定义
+interface FundProduct {
+  id: string;
+  name: string;
+  code: string;
+  returnRate: number;
+  description: string;
+  type: string;
+  riskLevel: string;
 }
 
-// 交易记录类型定义
-interface Transaction {
-  id: string
-  productName: string
-  transactionType: 'subscription' | 'redemption'
-  settlementValue: number
-  shares: number
-  date: string
-}
-
-// 资金状况类型定义
-interface FundStatus {
-  availableBalance: number
-  totalDeposit: number
-  totalWithdrawal: number
-  pendingAmount: number
-}
-
-// 入金出金记录类型定义
-interface DepositWithdrawal {
-  id: string
-  type: 'deposit' | 'withdrawal'
-  amount: number
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  created_at: string
-  updated_at: string
-  description?: string
-}
-
-export default function ProductsScreen({ lang = 'zh', demo = false, userInfo, onNavigateToAssetStatus, onNavigateToSubscriptionApplication, onNavigateToDepositService, onNavigateToCustomerService, onNavigateToWithdrawalApplication, onNavigateToFundTransactions }: { lang?: 'zh' | 'en'; demo?: boolean; userInfo?: any; onNavigateToAssetStatus?: () => void; onNavigateToSubscriptionApplication?: (product?: any) => void; onNavigateToDepositService?: () => void; onNavigateToCustomerService?: () => void; onNavigateToWithdrawalApplication?: () => void; onNavigateToFundTransactions?: () => void }) {
-  const [products, setProducts] = useState<any[]>([])
-  const [assets, setAssets] = useState<MyAssets | null>(null)
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
-  // 新增资金管理相关状态
-  const [fundStatus, setFundStatus] = useState<FundStatus | null>(null)
-  const [depositWithdrawals, setDepositWithdrawals] = useState<DepositWithdrawal[]>([])
-  const [showFundManagement, setShowFundManagement] = useState(true)
-  const [depositAmount, setDepositAmount] = useState('')
-  const [withdrawalAmount, setWithdrawalAmount] = useState('')
-  
-  // 滚动相关ref
-  const scrollViewRef = useRef<ScrollView>(null)
-  const assetsSectionRef = useRef<View>(null)
-  const fundManagementSectionRef = useRef<View>(null)
-  const transactionsSectionRef = useRef<View>(null)
-
-  // 数据加载函数
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      // 加载产品数据
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (productsError) throw productsError
-
-      // 处理产品数据，确保每个产品都有sale_status字段
-      const processedProducts = (productsData || []).map(product => ({
-        ...product,
-        // 如果sale_status字段不存在，设置默认值为'closed'
-        sale_status: product.sale_status || 'closed'
-      }))
-
-      // 存储处理后的产品数据
-      setProducts(processedProducts)
-
-      // 从positions表读取登录用户的持仓数据
-      if (userInfo && userInfo.id) {
-        console.log('登录用户ID:', userInfo.id)
-        
-        // 获取持仓数据
-        const { data: positionsData, error: positionsError } = await supabase
-          .from('positions')
-          .select('*')
-          .eq('user_id', userInfo.id)
-        
-        if (positionsError) {
-          console.error('获取用户持仓数据失败:', positionsError)
-        }
-        
-        // 计算基金价值（来自持仓数据）
-        const fundValue = positionsData && positionsData.length > 0 
-          ? positionsData.reduce((sum, position) => sum + (position.current_value || 0), 0)
-          : 0
-        console.log('基金价值计算: 各持仓current_value累加 =', fundValue)
-        
-        // 从cash_balances表获取现金余额数据
-        let cashBalance = 0
-        let availableBalance = 0
-        let totalDeposit = 0
-        let totalWithdrawal = 0
-        let pendingAmount = 0
-
-        // 获取现金余额数据
-        const { data: cashBalanceData, error: cashBalanceError } = await supabase
-          .from('cash_balances')
-          .select('*')
-          .eq('user_id', userInfo.id)
-        
-        if (cashBalanceData && cashBalanceData.length > 0) {
-          // 如果有现金余额记录，使用现有记录
-          cashBalance = cashBalanceData[0].cash_balance
-          availableBalance = cashBalanceData[0].cash_balance
-          pendingAmount = cashBalanceData[0].pending_funds
-          totalDeposit = cashBalanceData[0].total_deposits
-          totalWithdrawal = cashBalanceData[0].total_withdrawals
-        } else {
-          console.log('未找到现金余额记录，创建新记录:', cashBalanceError)
-          // 如果没有现金余额记录，创建一条初始记录
-          console.log('Creating new cash balance record for user:', userInfo.id)
-          const { data: newCashBalance, error: createError } = await supabase
-            .from('cash_balances')
-            .insert({
-              user_id: userInfo.id,
-              cash_balance: 100000.00,
-              pending_funds: 0.00,
-              total_deposits: 100000.00,
-              total_withdrawals: 0.00
-            })
-            .select('*')
-          
-          console.log('Create cash balance result:', newCashBalance, createError)
-          
-          if (newCashBalance && newCashBalance.length > 0) {
-            cashBalance = newCashBalance[0].cash_balance
-            availableBalance = newCashBalance[0].cash_balance
-            pendingAmount = newCashBalance[0].pending_funds
-            totalDeposit = newCashBalance[0].total_deposits
-            totalWithdrawal = newCashBalance[0].total_withdrawals
-            console.log('Using newly created cash balance record:', cashBalance, availableBalance, pendingAmount, totalDeposit, totalWithdrawal)
-          } else {
-            // 使用默认值
-            console.log('Using default cash balance values')
-            cashBalance = 100000.00
-            availableBalance = 100000.00
-            pendingAmount = 0.00
-            totalDeposit = 100000.00
-            totalWithdrawal = 0.00
-          }
-        }
-        
-        // 总资产 = 基金价值 + 现金余额
-        const totalAssets = fundValue + cashBalance
-        
-        // 设置资金状况
-        setFundStatus({
-          availableBalance,
-          totalDeposit,
-          totalWithdrawal,
-          pendingAmount
-        })
-        
-        // 设置资产数据
-        setAssets({
-          totalAssets,
-          fundValue,
-          cashBalance,
-          pendingFunds: pendingAmount // 设置在途资金
-        })
-        
-        // 获取入金出金记录
-        const { data: dwData, error: dwError } = await supabase
-          .from('deposit_withdrawal')
-          .select('*')
-          .eq('user_id', userInfo.id)
-          .order('created_at', { ascending: false })
-          
-        if (dwError) {
-          console.error('获取入金出金记录失败:', dwError)
-          setDepositWithdrawals([])
-        } else {
-          // 设置入金出金记录
-          setDepositWithdrawals(dwData || [])
-        }
-        
-        // 从subscription_redemption表读取登录用户的交易记录
-        try {
-          const { data: transactionsData, error: transactionsError } = await supabase
-            .from('subscription_redemption')
-            .select(`
-              *,
-              products (
-                id,
-                name_cn,
-                name_en
-              )
-            `)
-            .eq('user_id', userInfo.id)
-            .order('created_at', { ascending: false })
-          
-          if (transactionsError) {
-            console.error('获取交易记录失败:', transactionsError)
-            setTransactions([])
-          } else if (transactionsData && transactionsData.length > 0) {
-            const formattedTransactions: Transaction[] = transactionsData.map((item: any) => {
-              const product = item.products
-              const productName = product 
-                ? (lang === 'zh' ? product.name_cn : product.name_en) 
-                : '未知产品'
-              
-              return {
-                id: item.id,
-                productName: productName,
-                transactionType: item.type as 'subscription' | 'redemption',
-                settlementValue: item.total_amount || (item.nav * item.shares),
-                shares: item.shares,
-                date: item.created_at ? item.created_at.split('T')[0] : ''
-              }
-            })
-            setTransactions(formattedTransactions)
-          } else {
-            setTransactions([])
-          }
-        } catch (error) {
-          console.error('查询交易记录时发生异常:', error)
-          setTransactions([])
-        }
-      } else {
-        // 没有登录用户信息，不显示数据
-        setAssets(null)
-        setFundStatus(null)
-        setDepositWithdrawals([])
-        setProducts([])
-      }
-
-    } catch (error) {
-      console.error('Error loading data:', error)
-      setError('无法加载数据，请检查网络连接或稍后重试')
-    } finally {
-      setLoading(false)
+export default function ProductsScreen({
+  lang = 'zh',
+  demo = false,
+  userInfo,
+  onNavigateToAssetStatus,
+  onNavigateToSubscriptionApplication,
+  onNavigateToDepositService,
+  onNavigateToCustomerService,
+  onNavigateToWithdrawalApplication,
+  onNavigateToFundTransactions,
+  onNavigateToVersionSwitch,
+  onNavigateToMessageCenter,
+  appVersion = 'standard'
+}: {
+  lang?: 'zh' | 'en';
+  demo?: boolean;
+  userInfo?: any;
+  onNavigateToAssetStatus?: () => void;
+  onNavigateToSubscriptionApplication?: (product?: any) => void;
+  onNavigateToDepositService?: () => void;
+  onNavigateToCustomerService?: () => void;
+  onNavigateToWithdrawalApplication?: () => void;
+  onNavigateToFundTransactions?: () => void;
+  onNavigateToVersionSwitch?: () => void;
+  onNavigateToMessageCenter?: () => void;
+  appVersion?: 'standard' | 'simple' | 'premium';
+}) {
+  // 模拟基金产品数据
+  const [fundProducts, setFundProducts] = useState<FundProduct[]>([
+    {
+      id: '1',
+      name: '极光稳健增长基金',
+      code: 'J00001',
+      returnRate: 8.5,
+      description: '稳健增长型基金，适合风险偏好较低的投资者',
+      type: '混合型',
+      riskLevel: '中低风险'
+    },
+    {
+      id: '2',
+      name: '极光科技先锋基金',
+      code: 'J00002',
+      returnRate: 15.2,
+      description: '重点投资科技板块，追求高收益',
+      type: '股票型',
+      riskLevel: '高风险'
+    },
+    {
+      id: '3',
+      name: '极光固定收益基金',
+      code: 'J00003',
+      returnRate: 4.8,
+      description: '主要投资债券市场，收益稳定',
+      type: '债券型',
+      riskLevel: '低风险'
     }
-  }
+  ]);
 
-  useEffect(() => {
-    loadData()
-  }, [lang, supabase, userInfo])
+  // 模拟资产数据
+  const [assets, setAssets] = useState({
+    totalAssets: 1250000,
+    fundValue: 850000,
+    cash: 400000
+  });
 
-  // 语言翻译
-  const t = lang === 'zh' ? {
-    assetsCenter: '资管',
-    myAssets: '我的资产状况',
-    totalAssets: '总资产',
-    todayReturn: '今日收益',
-    returnRate: '收益率',
-    investmentReview: '投资回顾',
-    fundProducts: '基金产品',
-    historicalTransactions: '我的交易记录',
-    productName: '产品名称',
-    productCode: '产品代码',
-    transactionType: '交易类型',
-    buy: '买入',
-    sell: '卖出',
-    settlementValue: '结算价值',
-    shares: '份额',
-    date: '日期',
-    viewDetails: '查看详情',
-    riskLow: '低风险',
-    riskMedium: '中风险',
-    riskHigh: '高风险',
-    // 新增资金管理相关翻译
-    fundManagement: '资金管理',
-    availableBalance: '可用余额',
-    totalDeposit: '累计入金',
-    totalWithdrawal: '累计出金',
-    pendingAmount: '在途资金',
-    deposit: '入金',
-    withdrawal: '出金',
-    depositAmount: '入金金额',
-    withdrawalAmount: '出金金额',
-    confirmDeposit: '确认入金',
-    confirmWithdrawal: '确认出金',
-    recentRecords: '最近记录',
-    recordType: '记录类型',
-    status: '状态',
-    pending: '待处理',
-    completed: '已完成',
-    failed: '失败',
-    saleStatus: '可售状态',
-    openSale: '已开放',
-    closedSale: '已售净'
-  } : {
-    assetsCenter: 'Asset Management Center',
-    myAssets: 'My Asset Status',
-    totalAssets: 'Total Assets',
-    todayReturn: 'Today\'s Return',
-    returnRate: 'Return Rate',
-    investmentReview: 'Investment Review',
-    fundProducts: 'Fund Products',
-    historicalTransactions: 'My Transactions',
-    productName: 'Product Name',
-    productCode: 'Product Code',
-    transactionType: 'Transaction Type',
-    buy: 'Buy',
-    sell: 'Sell',
-    settlementValue: 'Settlement Value',
-    shares: 'Shares',
-    date: 'Date',
-    viewDetails: 'View Details',
-    riskLow: 'Low Risk',
-    riskMedium: 'Medium Risk',
-    riskHigh: 'High Risk',
-    // 新增资金管理相关翻译
-    fundManagement: 'Fund Management',
-    availableBalance: 'Available Balance',
-    totalDeposit: 'Total Deposit',
-    totalWithdrawal: 'Total Withdrawal',
-    pendingAmount: 'Pending Funds',
-    deposit: 'Deposit',
-    withdrawal: 'Withdrawal',
-    depositAmount: 'Deposit Amount',
-    withdrawalAmount: 'Withdrawal Amount',
-    confirmDeposit: 'Confirm Deposit',
-    confirmWithdrawal: 'Confirm Withdrawal',
-    recentRecords: 'Recent Records',
-    recordType: 'Record Type',
-    status: 'Status',
-    pending: 'Pending',
-    completed: 'Completed',
-    failed: 'Failed',
-    saleStatus: 'Sale Status',
-    openSale: 'Open',
-    closedSale: 'Closed'
-  }
-
-  // 获取风险等级对应的颜色和文本
-  const getRiskLevelInfo = (level: 'low' | 'medium' | 'high') => {
-    switch (level) {
-      case 'low':
-        return { color: '#10b981', text: t.riskLow }
-      case 'medium':
-        return { color: '#f59e0b', text: t.riskMedium }
-      case 'high':
-        return { color: '#ef4444', text: t.riskHigh }
+  // 模拟资金记录数据
+  const [fundRecords, setFundRecords] = useState([
+    {
+      id: '1',
+      type: 'deposit',
+      amount: 50000,
+      status: 'completed',
+      date: '2024-01-15'
+    },
+    {
+      id: '2',
+      type: 'withdrawal',
+      amount: 20000,
+      status: 'completed',
+      date: '2024-01-10'
+    },
+    {
+      id: '3',
+      type: 'subscription',
+      amount: 100000,
+      status: 'completed',
+      date: '2024-01-05'
     }
-  }
+  ]);
 
-  // 处理查看详情
-  const handleViewDetail = (productId: string) => {
-    const product = products.find(p => p.id === productId)
-    if (product) {
-      setSelectedProduct(product)
+  // 根据版本调整样式
+  const getVersionStyles = () => {
+    switch (appVersion) {
+      case 'simple':
+        return {
+          fontSize: {
+            base: 18,
+            large: 24,
+            small: 16
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '500',
+            bold: '700'
+          },
+          padding: {
+            base: 20,
+            small: 16
+          },
+          borderRadius: 12,
+          showSimplified: true
+        };
+      case 'premium':
+        return {
+          fontSize: {
+            base: 16,
+            large: 20,
+            small: 14
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '600',
+            bold: '800'
+          },
+          padding: {
+            base: 20,
+            small: 16
+          },
+          borderRadius: 16,
+          showPremium: true
+        };
+      default: // standard
+        return {
+          fontSize: {
+            base: 15,
+            large: 18,
+            small: 13
+          },
+          fontWeight: {
+            regular: '400',
+            medium: '500',
+            bold: '700'
+          },
+          padding: {
+            base: 16,
+            small: 12
+          },
+          borderRadius: 8,
+          showAll: true
+        };
     }
-  }
+  };
 
-  // 处理返回
-  const handleBack = () => {
-    setSelectedProduct(null)
-  }
+  const versionStyles = getVersionStyles();
 
-  // 更新用户现金余额到cash_balances表
-  const updateCashBalance = async (userId: string, newBalance: number, type: 'deposit' | 'withdrawal' = 'deposit', amount: number = 0) => {
-    try {
-      // 首先获取当前现金余额记录
-      const { data: cashBalanceData, error: getError } = await supabase
-        .from('cash_balances')
-        .select('*')
-        .eq('user_id', userId)
-
-      if (!cashBalanceData || cashBalanceData.length === 0) {
-        console.error('获取现金余额记录失败:', getError)
-        return
-      }
-
-      const existingBalance = cashBalanceData[0]
-      let totalDeposits = existingBalance.total_deposits
-      let totalWithdrawals = existingBalance.total_withdrawals
-
-      // 根据交易类型更新累计入金或累计出金
-      if (type === 'deposit') {
-        totalDeposits += amount
-      } else {
-        totalWithdrawals += amount
-      }
-
-      // 更新现金余额表
-      const { error: updateError } = await supabase
-        .from('cash_balances')
-        .update({
-          cash_balance: newBalance,
-          total_deposits: totalDeposits,
-          total_withdrawals: totalWithdrawals
-        })
-        .eq('user_id', userId)
-
-      if (updateError) {
-        console.error('更新现金余额失败:', updateError)
-      }
-    } catch (error) {
-      console.error('更新现金余额时发生异常:', error)
+  // 版本差异化标题
+  const getVersionTitle = () => {
+    switch (appVersion) {
+      case 'simple':
+        return lang === 'zh' ? '资管产品' : 'Asset Management';
+      case 'premium':
+        return lang === 'zh' ? '尊享资管' : 'Premium Asset Mgmt';
+      default:
+        return lang === 'zh' ? '资管' : 'Asset Management';
     }
-  }
-
-  // 处理入金
-  const handleDeposit = async () => {
-    if (!userInfo || !userInfo.id) {
-      alert(lang === 'zh' ? '请先登录' : 'Please login first')
-      return
-    }
-
-    const amount = parseFloat(depositAmount)
-    if (isNaN(amount) || amount <= 0) {
-      alert(lang === 'zh' ? '请输入有效的入金金额' : 'Please enter a valid deposit amount')
-      return
-    }
-
-    try {
-      // 1. 创建入金记录，状态为pending
-      const { error: dwError } = await supabase
-        .from('deposit_withdrawal')
-        .insert({
-          user_id: userInfo.id,
-          type: 'deposit',
-          amount: amount,
-          status: 'pending', // 初始状态为待处理
-          notes: '用户主动申请入金'
-        })
-
-      if (dwError) throw dwError
-
-      // 生成入金消息通知
-      await messageGenerator.generateFundTransactionMessage(
-        userInfo.id,
-        userInfo.nickname || userInfo.name || '极光用户',
-        '入金'
-      );
-
-      alert(lang === 'zh' ? '入金申请已提交，请等待管理员审批' : 'Deposit application submitted, please wait for admin approval')
-      setDepositAmount('')
-      // 重新加载数据
-      loadData()
-    } catch (error) {
-      console.error('入金申请失败:', error)
-      alert(lang === 'zh' ? '入金申请失败，请稍后重试' : 'Deposit application failed, please try again later')
-    }
-  }
-
-  // 处理出金
-  const handleWithdrawal = async () => {
-    if (!userInfo || !userInfo.id) {
-      alert(lang === 'zh' ? '请先登录' : 'Please login first')
-      return
-    }
-
-    const amount = parseFloat(withdrawalAmount)
-    if (isNaN(amount) || amount <= 0) {
-      alert(lang === 'zh' ? '请输入有效的出金金额' : 'Please enter a valid withdrawal amount')
-      return
-    }
-
-    // 检查可用余额
-    if (fundStatus && amount > fundStatus.availableBalance) {
-      alert(lang === 'zh' ? '出金金额超过可用余额' : 'Withdrawal amount exceeds available balance')
-      return
-    }
-
-    try {
-      // 1. 创建出金记录，状态为pending
-      const { error: dwError } = await supabase
-        .from('deposit_withdrawal')
-        .insert({
-          user_id: userInfo.id,
-          type: 'withdrawal',
-          amount: amount,
-          status: 'pending', // 初始状态为待处理
-          notes: '用户主动申请出金'
-        })
-
-      if (dwError) throw dwError
-
-      alert(lang === 'zh' ? '出金申请已提交，请等待管理员审批' : 'Withdrawal application submitted, please wait for admin approval')
-      setWithdrawalAmount('')
-      // 重新加载数据
-      loadData()
-    } catch (error) {
-      console.error('出金申请失败:', error)
-      alert(lang === 'zh' ? '出金申请失败，请稍后重试' : 'Withdrawal application failed, please try again later')
-    }
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
-      </View>
-    )
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>
-          {lang === 'zh' ? `错误: ${error}` : `Error: ${error}`}
-        </Text>
-      </View>
-    )
-  }
-
-  // 如果选中了产品，显示详情页
-  if (selectedProduct) {
-    return <ProductDetail product={selectedProduct} lang={lang} onClose={handleBack} />
-  }
+  };
 
   return (
     <View style={styles.container}>
-      {/* 顶部头衔 */}
+      {/* 顶部导航栏 */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t.assetsCenter}</Text>
+        <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>
+          {getVersionTitle()}
+        </Text>
+        
+        {/* 搜索框 */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={versionStyles.fontSize.base} color="#999" style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { fontSize: versionStyles.fontSize.small }]}
+            placeholder={lang === 'zh' ? '搜索产品' : 'Search Products'}
+            placeholderTextColor="#999"
+          />
+        </View>
+        
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('搜索')}>
-            <Text style={styles.icon}>🔍</Text>
+          {/* 消息中心图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={onNavigateToMessageCenter}>
+            <Ionicons name="notifications-outline" size={versionStyles.fontSize.base} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => {
-            console.log('客服按钮被点击，跳转到客服页面');
-            onNavigateToCustomerService?.();
-          }}>
-            <Text style={styles.icon}>🎧</Text>
+          {/* 在线客服图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={onNavigateToCustomerService}>
+            <Ionicons name="chatbubble-outline" size={versionStyles.fontSize.base} color="#333" />
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 资管功能按钮区域 */}
-      <View style={styles.assetManagementButtons}>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('入金咨询 - 跳转客服模块');
-            // 实际实现：跳转客服模块
-            onNavigateToCustomerService?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>💰</Text>
-            <Text style={styles.functionButtonText}>入金咨询</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('出金申请 - 跳转出金申请页面');
-            // 实际实现：跳转出金申请页面
-            onNavigateToWithdrawalApplication?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>🏦</Text>
-            <Text style={styles.functionButtonText}>出金申请</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('资产状况 - 导航到资产状况页面');
-            if (onNavigateToAssetStatus) {
-              onNavigateToAssetStatus();
-            } else {
-              // 备用方案：如果没有提供导航函数，仍然滚动到资产板块
-              assetsSectionRef.current?.measureLayout(
-                scrollViewRef.current as any,
-                (x, y) => {
-                  scrollViewRef.current?.scrollTo({ y: y, animated: true });
-                },
-                () => console.error('测量失败')
-              );
-            }
-          }}>
-            <Text style={styles.functionButtonIcon}>📊</Text>
-            <Text style={styles.functionButtonText}>资产状况</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('资金往来 - 跳转到资金往来页面');
-            // 实际实现：跳转到资金往来页面
-            onNavigateToFundTransactions?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>💹</Text>
-            <Text style={styles.functionButtonText}>资金往来</Text>
+          {/* 版本切换图标 */}
+          <TouchableOpacity style={styles.iconButton} onPress={onNavigateToVersionSwitch}>
+            <Ionicons name="settings-outline" size={versionStyles.fontSize.base} color="#333" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* 内容滚动区域 */}
-      <ScrollView ref={scrollViewRef} style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
-        {/* 1. 我的资产板块 */}
-        <View ref={assetsSectionRef} style={styles.section}>
-          {assets && (
-            <View style={styles.assetsContainer}>
-              {/* 区块内部标题和更多按钮 */}
-              <View style={styles.assetsHeader}>
-                <Text style={styles.assetsTitle}>{t.myAssets}</Text>
-                <TouchableOpacity onPress={() => {
-                  console.log('我的资产 - 点击更多按钮');
-                  if (onNavigateToAssetStatus) {
-                    onNavigateToAssetStatus();
-                  }
-                }}>
-                  <Text style={styles.moreButton}>更多&gt;&gt;</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* 总资产 */}
-              <View style={styles.assetItem}>
-                <Text style={styles.assetLabel}>{t.totalAssets}</Text>
-                <Text style={styles.assetValue}>¥{assets.totalAssets.toFixed(2)}</Text>
-              </View>
-              
-              {/* 基金价值 */}
-              <View style={styles.assetItem}>
-                <Text style={styles.assetLabel}>基金价值</Text>
-                <Text style={styles.assetValue}>¥{assets.fundValue.toFixed(2)}</Text>
-              </View>
-              
-              {/* 现金余额 */}
-              <View style={styles.assetItem}>
-                <Text style={styles.assetLabel}>现金余额</Text>
-                <Text style={styles.assetValue}>¥{assets.cashBalance.toFixed(2)}</Text>
-              </View>
-              
-              {/* 在途资金 */}
-              <View style={styles.assetItem}>
-                <Text style={styles.assetLabel}>在途资金</Text>
-                <Text style={styles.assetValue}>¥{assets.pendingFunds.toFixed(2)}</Text>
-              </View>
-            </View>
-          )}
+      {/* 可滚动内容区域 */}
+      <ScrollView style={styles.scrollContent}>
+        {/* 资产总览 */}
+        <View style={styles.assetsContainer}>
+        <View style={styles.assetsHeader}>
+          <Text style={[styles.assetsTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>
+            {lang === 'zh' ? '资产总览' : 'Asset Overview'}
+          </Text>
+          <Pressable onPress={onNavigateToAssetStatus}>
+            <Text style={styles.moreButton}>{lang === 'zh' ? '查看详情' : 'View Details'} &gt;</Text>
+          </Pressable>
         </View>
-
-        {/* 2. 资金往来最新记录 */}
-        <View style={styles.section}>
-          <View style={styles.fundsRecordsContainer}>
-            {/* 区块标题和更多按钮 */}
-            <View style={styles.recordsHeader}>
-              <Text style={styles.recordsTitle}>资金往来最新记录</Text>
-              <TouchableOpacity onPress={() => {
-                console.log('查看更多资金往来记录');
-                onNavigateToFundTransactions?.();
-              }}>
-                <Text style={styles.moreButton}>更多&gt;&gt;</Text>
-              </TouchableOpacity>
+        
+        <View style={styles.assetItem}>
+          <Text style={[styles.assetLabel, { fontSize: versionStyles.fontSize.small }]}>
+            {lang === 'zh' ? '总资产' : 'Total Assets'}
+          </Text>
+          <Text style={[styles.assetValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>
+            ¥{assets.totalAssets.toLocaleString()}
+          </Text>
+        </View>
+        
+        {/* 标准版本显示完整资产分布，简易版只显示总资产 */}
+        {appVersion !== 'simple' && (
+          <>
+            <View style={styles.assetItem}>
+              <Text style={[styles.assetLabel, { fontSize: versionStyles.fontSize.small }]}>
+                {lang === 'zh' ? '基金持仓' : 'Fund Holdings'}
+              </Text>
+              <Text style={[styles.assetValue, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>
+                ¥{assets.fundValue.toLocaleString()}
+              </Text>
             </View>
             
-            {/* 记录列表 */}
-            {depositWithdrawals.length === 0 ? (
-              <View style={styles.emptyRecordsContainer}>
-                <Text style={styles.emptyRecordsText}>
-                  {lang === 'zh' ? '暂无入金出金记录' : 'No deposit/withdrawal records yet'}
+            <View style={styles.assetItem}>
+              <Text style={[styles.assetLabel, { fontSize: versionStyles.fontSize.small }]}>
+                {lang === 'zh' ? '现金资产' : 'Cash Assets'}
+              </Text>
+              <Text style={[styles.assetValue, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>
+                ¥{assets.cash.toLocaleString()}
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      {/* 资产管理功能按钮 */}
+      <View style={styles.assetManagementButtons}>
+        <View style={styles.buttonRow}>
+          <Pressable style={styles.functionButton} onPress={onNavigateToSubscriptionApplication}>
+            <Ionicons name="add-circle-outline" size={versionStyles.fontSize.large} color="#4a90e2" />
+            <Text style={[styles.functionButtonText, { fontSize: versionStyles.fontSize.small }]}>
+              {lang === 'zh' ? '申购' : 'Subscribe'}
+            </Text>
+          </Pressable>
+          
+          <Pressable style={styles.functionButton} onPress={() => {/* 导航到赎回 */}}>
+            <Ionicons name="remove-circle-outline" size={versionStyles.fontSize.large} color="#4a90e2" />
+            <Text style={[styles.functionButtonText, { fontSize: versionStyles.fontSize.small }]}>
+              {lang === 'zh' ? '赎回' : 'Redeem'}
+            </Text>
+          </Pressable>
+          
+          {/* 简易版只显示核心功能 */}
+          {appVersion !== 'simple' && (
+            <>
+              <Pressable style={styles.functionButton} onPress={onNavigateToDepositService}>
+                <Ionicons name="arrow-down-circle-outline" size={versionStyles.fontSize.large} color="#4a90e2" />
+                <Text style={[styles.functionButtonText, { fontSize: versionStyles.fontSize.small }]}>
+                  {lang === 'zh' ? '入金' : 'Deposit'}
                 </Text>
-              </View>
-            ) : (
-              <View style={styles.recordsList}>
-                {/* 只显示3条记录 */}
-                {depositWithdrawals.slice(0, 3).map((record) => (
-                  <View key={record.id} style={styles.recordItem}>
-                    <View style={styles.recordHeader}>
-                      <Text style={styles.recordType}>
-                        {record.type === 'deposit' ? t.deposit : t.withdrawal}
+              </Pressable>
+              
+              <Pressable style={styles.functionButton} onPress={onNavigateToWithdrawalApplication}>
+                <Ionicons name="arrow-up-circle-outline" size={versionStyles.fontSize.large} color="#4a90e2" />
+                <Text style={[styles.functionButtonText, { fontSize: versionStyles.fontSize.small }]}>
+                  {lang === 'zh' ? '出金' : 'Withdraw'}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* 尊享版专属服务 */}
+      {appVersion === 'premium' && (
+        <View style={styles.premiumServices}>
+          <Text style={[styles.assetsTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold, marginBottom: 16 }]}>
+            {lang === 'zh' ? '尊享专属服务' : 'Premium Exclusive Services'}
+          </Text>
+          
+          <View style={styles.premiumServiceItem}>
+            <Ionicons name="shield-checkmark-outline" size={24} color="#4a90e2" style={styles.premiumServiceIcon} />
+            <View style={styles.premiumServiceContent}>
+              <Text style={styles.premiumServiceTitle}>
+                {lang === 'zh' ? '专属投资顾问' : 'Personal Investment Advisor'}
+              </Text>
+              <Text style={styles.premiumServiceDescription}>
+                {lang === 'zh' ? '一对一专业投资建议，量身定制理财方案' : 'One-on-one professional investment advice, customized financial plan'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#4a90e2" style={styles.premiumServiceArrow} />
+          </View>
+          
+          <View style={styles.premiumServiceDivider} />
+          
+          <View style={styles.premiumServiceItem}>
+            <Ionicons name="calendar-outline" size={24} color="#4a90e2" style={styles.premiumServiceIcon} />
+            <View style={styles.premiumServiceContent}>
+              <Text style={styles.premiumServiceTitle}>
+                {lang === 'zh' ? '专属投资策略会' : 'Exclusive Investment Strategy Meeting'}
+              </Text>
+              <Text style={styles.premiumServiceDescription}>
+                {lang === 'zh' ? '定期举办高端投资策略会，提前把握市场先机' : 'Regular high-end investment strategy meetings, grasp market opportunities in advance'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#4a90e2" style={styles.premiumServiceArrow} />
+          </View>
+          
+          <View style={styles.premiumServiceDivider} />
+          
+          <View style={styles.premiumServiceItem}>
+            <Ionicons name="diamond-outline" size={24} color="#4a90e2" style={styles.premiumServiceIcon} />
+            <View style={styles.premiumServiceContent}>
+              <Text style={styles.premiumServiceTitle}>
+                {lang === 'zh' ? '优先购买权' : 'Priority Purchase Right'}
+              </Text>
+              <Text style={styles.premiumServiceDescription}>
+                {lang === 'zh' ? '新基金产品优先购买权，享受专属费率优惠' : 'Priority purchase right for new fund products, exclusive fee discounts'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#4a90e2" style={styles.premiumServiceArrow} />
+          </View>
+        </View>
+      )}
+
+      {/* 基金产品列表 */}
+      <View style={styles.fundProductsContainer}>
+        <Text style={[styles.fundProductsTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>
+          {lang === 'zh' ? '基金产品' : 'Fund Products'}
+        </Text>
+        
+        <View style={styles.fundProductsList}>
+          {fundProducts.map((product) => (
+            <Pressable 
+              key={product.id} 
+              style={styles.fundProductItem}
+              onPress={() => onNavigateToSubscriptionApplication?.(product)}
+            >
+              <View style={styles.fundProductInfo}>
+                <Text style={[styles.productName, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>
+                  {product.name}
+                </Text>
+                
+                {/* 标准版本显示完整产品信息，简易版只显示名称和收益率 */}
+                {appVersion !== 'simple' && (
+                  <View style={styles.productDetails}>
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>
+                        {lang === 'zh' ? '代码' : 'Code'}
                       </Text>
-                      <Text style={[styles.recordAmount, record.type === 'deposit' ? styles.depositAmount : styles.withdrawalAmount]}>
-                        {record.type === 'deposit' ? '+' : '-' }¥{record.amount.toFixed(2)}
+                      <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.small }]}>
+                        {product.code}
                       </Text>
                     </View>
-                    <View style={styles.recordDetails}>
-                      <Text style={styles.recordStatus}>
-                        {record.status === 'pending' ? t.pending : record.status === 'processing' ? (lang === 'zh' ? '正在办理中' : 'Processing') : record.status === 'completed' ? t.completed : t.failed}
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>
+                        {lang === 'zh' ? '类型' : 'Type'}
                       </Text>
-                      <Text style={styles.recordDate}>
-                        {new Date(record.created_at).toLocaleDateString()}
+                      <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.small }]}>
+                        {product.type}
+                      </Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>
+                        {lang === 'zh' ? '风险' : 'Risk'}
+                      </Text>
+                      <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.small }]}>
+                        {product.riskLevel}
                       </Text>
                     </View>
                   </View>
-                ))}
+                )}
+                
+                <Text style={[
+                  styles.productReturn,
+                  product.returnRate >= 0 ? styles.positiveReturn : styles.negativeReturn,
+                  { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }
+                ]}>
+                  {product.returnRate}%
+                </Text>
               </View>
-            )}
+              <Pressable 
+                style={styles.subscribeButton}
+                onPress={() => onNavigateToSubscriptionApplication?.(product)}
+              >
+                <Text style={styles.subscribeButtonText}>
+                  {lang === 'zh' ? '申购' : 'Subscribe'}
+                </Text>
+              </Pressable>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {/* 资金往来记录 - 标准版本显示，简易版隐藏 */}
+      {appVersion !== 'simple' && (
+        <View style={styles.fundsRecordsContainer}>
+          <View style={styles.recordsHeader}>
+            <Text style={[styles.recordsTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>
+              {lang === 'zh' ? '资金往来记录' : 'Fund Transactions'}
+            </Text>
+            <Pressable onPress={onNavigateToFundTransactions}>
+              <Text style={styles.moreButton}>{lang === 'zh' ? '查看全部' : 'View All'} &gt;</Text>
+            </Pressable>
+          </View>
+          
+          <View style={styles.recordsList}>
+            {fundRecords.map((record) => (
+              <View key={record.id} style={styles.recordItem}>
+                <View style={styles.recordHeader}>
+                  <Text style={[styles.recordType, { fontSize: versionStyles.fontSize.small }]}>
+                    {lang === 'zh' 
+                      ? record.type === 'deposit' ? '入金' : record.type === 'withdrawal' ? '出金' : '申购' 
+                      : record.type === 'deposit' ? 'Deposit' : record.type === 'withdrawal' ? 'Withdrawal' : 'Subscription'
+                    }
+                  </Text>
+                  <Text style={[
+                    styles.recordAmount,
+                    record.type === 'deposit' ? styles.depositAmount : styles.withdrawalAmount,
+                    { fontSize: versionStyles.fontSize.small, fontWeight: versionStyles.fontWeight.bold }
+                  ]}>
+                    {record.type === 'deposit' ? '+' : '-'}
+                    ¥{record.amount.toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.recordDetails}>
+                  <Text style={[styles.recordStatus, { fontSize: versionStyles.fontSize.small }]}>
+                    {lang === 'zh' 
+                      ? record.status === 'completed' ? '已完成' : '处理中' 
+                      : record.status === 'completed' ? 'Completed' : 'Processing'
+                    }
+                  </Text>
+                  <Text style={[styles.recordDate, { fontSize: versionStyles.fontSize.small }]}>
+                    {record.date}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
-
-        {/* 3. 基金产品板块 */}
-        <View style={styles.section}>
-          {products.length > 0 ? (
-            <View style={styles.fundProductsContainer}>
-              {/* 区块内部标题 */}
-              <Text style={styles.fundProductsTitle}>{t.fundProducts}</Text>
-              
-              {/* 基金产品列表（无独立卡片） */}
-              <View style={styles.fundProductsList}>
-                {products.map((product) => {
-                  const productName = lang === 'zh' ? product.name_cn : product.name_en || product.name_cn
-                  const returnRate = product.annual_return || 0
-                  const riskLevel = (product.risk_level || 'medium') as 'low' | 'medium' | 'high'
-                  const nav = product.net_asset_value || 1.0
-                  const riskInfo = getRiskLevelInfo(riskLevel)
-                  
-                  return (
-                    <View key={product.id} style={styles.fundProductItem}>
-                      {/* 基金产品信息 */}
-                      <View style={styles.fundProductInfo}>
-                        <Pressable onPress={() => handleViewDetail(product.id)}>
-                          <Text style={styles.productName}>{productName}</Text>
-                        </Pressable>
-                        
-                        <View style={styles.productDetails}>
-                          <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel}>风险等级</Text>
-                            <Text style={[styles.detailValue, { color: riskInfo.color }]}>
-                              {riskInfo.text}
-                            </Text>
-                          </View>
-                          <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel}>单位净值</Text>
-                            <Text style={styles.detailValue}>¥{nav.toFixed(2)}</Text>
-                          </View>
-                          <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel}>年化收益</Text>
-                            <Text style={[styles.returnRate, returnRate > 0 ? styles.positiveReturn : styles.negativeReturn]}>
-                              {returnRate > 0 ? '+' : ''}{returnRate}%
-                            </Text>
-                          </View>
-                          <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel}>{t.saleStatus}</Text>
-                            <Text style={[
-                              styles.detailValue,
-                              (product.sale_status || '') === 'open' ? { color: '#188038' } : { color: '#d93025' }
-                            ]}>
-                              {(product.sale_status || '') === 'open' ? t.openSale : t.closedSale}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      {/* 申请申购按钮 */}
-                      <TouchableOpacity style={styles.subscribeButton} onPress={() => {
-                        console.log('申请申购:', productName);
-                        if (onNavigateToSubscriptionApplication) {
-                          onNavigateToSubscriptionApplication(product);
-                        }
-                      }}>
-                        <Text style={styles.subscribeButtonText}>申请申购</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )
-                })}
-              </View>
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{lang === 'zh' ? '暂无基金产品' : 'No fund products yet'}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* 底部留白 */}
-        <View style={{ height: 80 }} />
+      )}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5', // 淡浅灰色
-    padding: 12, // 缩小左右缝隙
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f2f5', // 淡浅灰色
-  },
-  loadingText: {
-    color: '#333',
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f2f5', // 淡浅灰色
-    padding: 12, // 缩小左右缝隙
-  },
-  errorText: {
-    color: '#d93025',
-    fontSize: 16,
-    textAlign: 'center',
+    backgroundColor: '#f0f2f5',
   },
   header: {
-    // 取消底色，使用app背景色
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: 12,
     paddingHorizontal: 12,
-    paddingVertical: 16,
+    backgroundColor: '#f0f2f5',
+  },
+  searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 14,
+    color: '#333',
+  },
+  scrollContent: {
+    flex: 1,
+    padding: 12,
   },
   title: {
-    color: '#333', // 黑色标题
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconButton: {
+    marginLeft: 16,
     padding: 8,
-    marginLeft: 12,
   },
-  icon: {
-    fontSize: 20,
-    color: '#333',
-  },
-  // 资管功能按钮样式
-  assetManagementButtons: {
-    backgroundColor: '#fff',
+  assetsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
     padding: 16,
     marginBottom: 16,
+  },
+  assetsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  assetsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  moreButton: {
+    color: '#4a90e2',
+    fontSize: 14,
+  },
+  assetItem: {
+    marginBottom: 16,
+  },
+  assetLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  assetValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  assetManagementButtons: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -829,241 +575,100 @@ const styles = StyleSheet.create({
   functionButton: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  functionButtonIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   functionButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#333',
-    textAlign: 'center',
   },
-  subtitle: {
-    color: '#666',
-    fontSize: 16,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    color: '#333',
-    fontSize: 20,
-    fontWeight: '600',
+  fundProductsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 16,
     marginBottom: 16,
   },
-  assetsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  // 资产区块内部标题
-  assetsTitle: {
-    color: '#333',
+  fundProductsTitle: {
     fontSize: 18,
-    fontWeight: '600',
-  },
-  // 资产区块标题栏
-  assetsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  assetItem: {
-    marginBottom: 20,
-  },
-  assetLabel: {
-    color: '#666',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  assetValue: {
+    fontWeight: 'bold',
     color: '#333',
-    fontSize: 24,
-    fontWeight: '700',
+    marginBottom: 16,
   },
-  investmentReview: {
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+  fundProductsList: {
+    gap: 12,
   },
-  reviewLabel: {
-    color: '#666',
-    fontSize: 14,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  reviewText: {
-    color: '#333',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  productList: {
-    gap: 16,
-  },
-  productCard: {
+  fundProductItem: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+  fundProductInfo: {
+    flex: 1,
   },
   productName: {
+    fontSize: 16,
+    fontWeight: '500',
     color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  productCode: {
-    color: '#999',
-    fontSize: 12,
-  },
-  returnRate: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  positiveReturn: {
-    color: '#d93025',
-  },
-  negativeReturn: {
-    color: '#188038',
+    marginBottom: 8,
   },
   productDetails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
-  },
-  detailItem: {
-    width: '30%', // 调整宽度，允许每行显示3个详情项
-  },
-  detailLabel: {
-    color: '#999',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  detailValue: {
-    color: '#333',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  transactionsContainer: {
-    gap: 12,
-  },
-  emptyTransactionsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTransactionsText: {
-    color: '#999',
-    fontSize: 14,
-  },
-  transactionItem: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    gap: 16,
     marginBottom: 12,
   },
-  transactionProductName: {
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  detailValue: {
+    fontSize: 14,
     color: '#333',
+    fontWeight: '500',
+  },
+  productReturn: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: 'bold',
   },
-  transactionProductCode: {
-    color: '#999',
-    fontSize: 12,
-  },
-  transactionType: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  buyType: {
-    backgroundColor: '#e6f4ea',
+  positiveReturn: {
     color: '#188038',
   },
-  sellType: {
-    backgroundColor: '#fde8e9',
+  negativeReturn: {
     color: '#d93025',
   },
-  transactionDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 12,
+  subscribeButton: {
+    backgroundColor: '#4a90e2',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
   },
-  transactionDetailItem: {
-    width: '30%',
-  },
-  transactionDetailLabel: {
-    color: '#999',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  transactionDetailValue: {
-    color: '#333',
+  subscribeButtonText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
   },
-  // 资金往来记录样式
   fundsRecordsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
   },
   recordsHeader: {
     flexDirection: 'row',
@@ -1072,22 +677,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   recordsTitle: {
-    color: '#333',
     fontSize: 18,
-    fontWeight: '600',
-  },
-  moreButton: {
-    color: '#188038',
-    fontSize: 14,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    color: '#333',
   },
   recordsList: {
-    gap: 12,
+    marginTop: 16,
   },
   recordItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   recordHeader: {
     flexDirection: 'row',
@@ -1096,13 +705,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recordType: {
-    color: '#333',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#333',
   },
   recordAmount: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   depositAmount: {
     color: '#188038',
@@ -1123,77 +732,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  emptyRecordsContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyRecordsText: {
-    color: '#999',
-    fontSize: 14,
-  },
-  // 基金产品新样式
-  fundProductsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  // 尊享版专属服务样式
+  premiumServices: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  fundProductsTitle: {
-    color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
     marginBottom: 16,
   },
-  fundProductsList: {
-    gap: 12,
-  },
-  fundProductItem: {
+  premiumServiceItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingVertical: 16,
   },
-  fundProductInfo: {
+  premiumServiceIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  premiumServiceContent: {
     flex: 1,
   },
-  subscribeButton: {
-    backgroundColor: '#188038',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  subscribeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // 内容滚动区域样式
-  contentScrollView: {
-    flex: 1,
-    backgroundColor: '#f0f2f5',
-  },
-  // 空状态样式
-  emptyContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-  },
-  emptyText: {
+  premiumServiceTitle: {
     fontSize: 16,
-    color: '#999',
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
-})
+  premiumServiceDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  premiumServiceArrow: {
+    fontSize: 16,
+    color: '#4a90e2',
+  },
+  premiumServiceDivider: {
+    height: 1,
+    backgroundColor: '#e0e8ff',
+    marginVertical: 8,
+  },
+});
