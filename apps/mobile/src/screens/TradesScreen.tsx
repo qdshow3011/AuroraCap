@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Pressable, TextInput } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Pressable, TextInput, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 interface Product {
   id: string
@@ -48,6 +49,8 @@ export default function TradesScreen({
   onNavigateToCustomerService?: () => void,
   onNavigateToMessageCenter?: () => void
 }) {
+  // 获取安全区域信息
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'subscription' | 'redemption' | 'records' | 'contracts'>('subscription')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -618,7 +621,7 @@ export default function TradesScreen({
   return (
     <View style={styles.container}>
       {/* 顶部导航栏 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
         <Text style={styles.title}>{t.title}</Text>
         <View style={styles.headerIcons}>
           {/* 消息中心图标 */}

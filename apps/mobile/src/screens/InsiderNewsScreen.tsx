@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image, TouchableOpacity, TextInput } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image, TouchableOpacity, TextInput, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import HTML from 'react-native-render-html'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // 公众号类型定义
 interface OfficialAccount {
@@ -53,6 +54,8 @@ const getHtmlSummary = (html: string, maxLength: number = 120): string => {
 };
 
 export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'standard', onNavigateTo, onArticlePress }: { lang?: 'zh' | 'en'; demo?: boolean; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateTo?: (screen: string) => void; onArticlePress?: (article: any) => void }) {
+  // 获取安全区域信息
+  const insets = useSafeAreaInsets();
   const [articles, setArticles] = useState<InsiderArticle[]>([])
   const [accounts, setAccounts] = useState<OfficialAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -248,7 +251,7 @@ export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'sta
   return (
     <View style={styles.container}>
       {/* 顶部标题 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
         <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>{t.insiderNews}</Text>
         
         {/* 搜索框 */}

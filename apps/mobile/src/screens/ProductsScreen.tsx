@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity, TextInput, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 基金产品类型定义
 interface FundProduct {
@@ -40,6 +41,8 @@ export default function ProductsScreen({
   onNavigateToMessageCenter?: () => void;
   appVersion?: 'standard' | 'simple' | 'premium';
 }) {
+  // 获取安全区域信息
+  const insets = useSafeAreaInsets();
   // 模拟基金产品数据
   const [fundProducts, setFundProducts] = useState<FundProduct[]>([
     {
@@ -183,7 +186,7 @@ export default function ProductsScreen({
   return (
     <View style={styles.container}>
       {/* 顶部导航栏 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
         <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>
           {getVersionTitle()}
         </Text>

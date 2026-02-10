@@ -1,8 +1,11 @@
-import { View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from 'react-native'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onEditAccountInfo, onNavigateToAvatarEdit, observerHoldings, observerTransactions, isDemo, onNavigateToAssetStatus, onNavigateToFundTransactions, onNavigateToSubscriptionRedemptionRecords, onNavigateToCustomerService, onNavigateToMessageCenter, onNavigateToApplicationProcessing, onNavigateToMyCustomers, onNavigateToFunctionSettings, onNavigateToSystemSettings, onNavigateToHelpCenter, onNavigateToSecurityCenter, onNavigateToAboutUs, appVersion = 'standard', onNavigateToVersionSwitch, lang = 'zh' }: { userInfo?: any; onSwitchAccount: () => void; onLogout: () => void; onEditAccountInfo: () => void; onNavigateToAvatarEdit?: () => void; observerHoldings?: any[]; observerTransactions?: any[]; isDemo?: boolean; onNavigateToAssetStatus?: () => void; onNavigateToFundTransactions?: () => void; onNavigateToSubscriptionRedemptionRecords?: () => void; onNavigateToCustomerService?: () => void; onNavigateToMessageCenter?: (category?: 'all' | 'system' | 'investment') => void; onNavigateToApplicationProcessing?: () => void; onNavigateToMyCustomers?: () => void; onNavigateToFunctionSettings?: () => void; onNavigateToSystemSettings?: () => void; onNavigateToHelpCenter?: () => void; onNavigateToSecurityCenter?: () => void; onNavigateToAboutUs?: () => void; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateToVersionSwitch?: () => void; lang?: 'zh' | 'en' }) {
+  // 获取安全区域信息
+  const insets = useSafeAreaInsets();
   // 获取角色显示名称
   const getRoleDisplayName = (role?: string) => {
     switch (role) {
@@ -193,7 +196,7 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
   return (
     <View style={styles.container}>
       {/* 顶部用户信息区 - 固定 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
         <View style={styles.userInfo}>
           <Pressable style={styles.avatarContainer} onPress={() => onNavigateToAvatarEdit?.()}>
             <Image source={{ uri: userData.avatar }} style={styles.avatar} />

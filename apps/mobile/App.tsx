@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Pressable, StyleSheet, StatusBar } from 'react-native'
+import { View, Text, Pressable, StyleSheet, StatusBar, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import PortfolioScreen from './src/screens/PortfolioScreen'
@@ -946,6 +946,7 @@ export default function App() {
   
   return (
     <SafeAreaProvider>
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <View style={styles.container}>
         {/* 主内容区域 */}
         <View style={styles.content}>
