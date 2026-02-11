@@ -6,6 +6,24 @@
     "sdkVersion": "51.0.0",
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
-    "entryPoint": "./App.tsx"
+    "entryPoint": "./App.tsx",
+    "ios": {
+      "infoPlist": {
+        "UIStatusBarHidden": false,
+        "UIViewControllerBasedStatusBarAppearance": true
+      }
+    },
+    "android": {
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "transparent",
+        "barStyle": "light-content"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/logo.svg"
+    }
   }
 }
