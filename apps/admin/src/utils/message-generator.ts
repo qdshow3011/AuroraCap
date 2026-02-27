@@ -15,7 +15,7 @@ export const messageGenerator = {
       let actualUserName = userName || '用户';
       
       if (userId) {
-        const { data: userData, error: userError } = await supabaseClient
+        const { data: userData } = await supabaseClient
           .from('users')
           .select('name, nickname')
           .eq('id', userId)
@@ -56,7 +56,7 @@ export const messageGenerator = {
       let actualUserName = '用户';
       
       if (userId) {
-        const { data: userData, error: userError } = await supabaseClient
+        const { data: userData } = await supabaseClient
           .from('users')
           .select('name, nickname')
           .eq('id', userId)
@@ -86,7 +86,7 @@ export const messageGenerator = {
       let actualUserName = userName || '用户';
       
       if (userId) {
-        const { data: userData, error: userError } = await supabaseClient
+        const { data: userData } = await supabaseClient
           .from('users')
           .select('name, nickname')
           .eq('id', userId)
@@ -128,13 +128,13 @@ export const messageGenerator = {
   },
 
   // 生成管理员操作消息
-  async generateAdminOperationMessage(userId: string, operationType: string, content: string) {
+  async generateAdminOperationMessage(userId: string, _operationType: string, content: string) {
     try {
       // 直接从数据库查询用户的详细信息，确保获取到正确的用户名
       let actualUserName = '用户';
       
       if (userId) {
-        const { data: userData, error: userError } = await supabaseClient
+        const { data: userData } = await supabaseClient
           .from('users')
           .select('name, nickname')
           .eq('id', userId)
@@ -158,7 +158,7 @@ export const messageGenerator = {
   },
 
   // 通用消息生成函数
-  private async generateMessage(options: GenerateMessageOptions) {
+  async generateMessage(options: GenerateMessageOptions) {
     try {
       // 插入消息
       const { data: messageData, error: messageError } = await supabaseClient
@@ -189,7 +189,7 @@ export const messageGenerator = {
   },
 
   // 生成消息状态记录
-  private async generateMessageStatus(messageId: string, audienceType: string, userId?: string) {
+  async generateMessageStatus(messageId: string, audienceType: string, userId?: string) {
     try {
       if (audienceType === 'user' && userId) {
         // 如果是针对特定用户的消息，为该用户创建状态记录

@@ -1,5 +1,5 @@
 import React from 'react';
-import {  DashboardOutlined,  UserOutlined,  TeamOutlined,  DatabaseOutlined,  SettingOutlined,  FileTextOutlined,  GiftOutlined,  ProductOutlined,  BellOutlined,  MessageOutlined,  TransactionOutlined,  LineChartOutlined,} from '@ant-design/icons';
+import {  DashboardOutlined,  UserOutlined,  TeamOutlined,  DatabaseOutlined,  SettingOutlined,  FileTextOutlined,  GiftOutlined,  ProductOutlined,  BellOutlined,  MessageOutlined,  TransactionOutlined,  LineChartOutlined,  FolderOpenOutlined,  AppstoreOutlined,} from '@ant-design/icons';
 
 // 定义导航项类型
 export interface NavigationItem {
@@ -49,6 +49,13 @@ export const navigationConfig: NavigationItem[] = [
       },
       {        key: '/user-center/invitation-codes',        label: '邀请码管理',        icon: <GiftOutlined />,        path: '/user-center/invitation-codes',        component: () => import('../pages/user-center/invitation-code-management'),      },
       {        key: '/user-center/customer-service',        label: '客服管理',        icon: <MessageOutlined />,        path: '/user-center/customer-service',        component: () => import('../pages/user-center/customer-service-management'),      },
+      {
+        key: '/user-center/fund-companies',
+        label: '基金公司管理',
+        icon: <TeamOutlined />,
+        path: '/user-center/fund-companies',
+        component: () => import('../pages/user-center/fund-company-management'),
+      },
     ],
   },
   {
@@ -99,12 +106,12 @@ export const navigationConfig: NavigationItem[] = [
           component: () => import('../pages/asset-management/interactive-brokers-data'),
         },
         {
-          key: '/asset-management/index-management',
-          label: '指数管理',
-          icon: <LineChartOutlined />,
-          path: '/asset-management/index-management',
-          component: () => import('../pages/asset-management/index-management'),
-        },
+        key: '/asset-management/index-management',
+        label: '证券管理',
+        icon: <LineChartOutlined />,
+        path: '/asset-management/index-management',
+        component: () => import('../pages/asset-management/index-management'),
+      },
         {
           key: '/asset-management/contracts',
           label: '合同管理',
@@ -130,8 +137,57 @@ export const navigationConfig: NavigationItem[] = [
         key: '/information-center/internal-references',
         label: '内参管理',
         icon: <FileTextOutlined />,
-        path: '/information-center/internal-references',
-        component: () => import('../pages/information-center/internal-reference-management'),
+        children: [
+          {
+            key: '/information-center/internal-references/list',
+            label: '内参列表',
+            icon: <FileTextOutlined />,
+            path: '/information-center/internal-references/list',
+            component: () => import('../pages/information-center/internal-reference-management'),
+          },
+          {
+            key: '/information-center/internal-references/drafts',
+            label: '草稿箱',
+            icon: <FileTextOutlined />,
+            path: '/information-center/internal-references/drafts',
+            component: () => import('../pages/information-center/internal-reference-management'),
+          },
+          {
+            key: '/information-center/internal-references/published',
+            label: '发布记录',
+            icon: <FileTextOutlined />,
+            path: '/information-center/internal-references/published',
+            component: () => import('../pages/information-center/internal-reference-management'),
+          },
+          {
+            key: '/information-center/internal-references/categories',
+            label: '分类管理',
+            icon: <AppstoreOutlined />,
+            path: '/information-center/internal-references/categories',
+            component: () => import('../pages/information-center/internal-reference-category-management'),
+          },
+          {
+            key: '/information-center/internal-references/media-library',
+            label: '媒体库',
+            icon: <FolderOpenOutlined />,
+            path: '/information-center/internal-references/media-library',
+            component: () => import('../pages/information-center/media-library'),
+          },
+          {
+            key: '/information-center/internal-references/editor',
+            label: '写新内参',
+            icon: <FileTextOutlined />,
+            path: '/information-center/internal-references/editor',
+            component: () => import('../pages/information-center/internal-reference-editor'),
+          },
+          {
+            key: '/information-center/internal-references/official-accounts',
+            label: '公众号管理',
+            icon: <AppstoreOutlined />,
+            path: '/information-center/internal-references/official-accounts',
+            component: () => import('../pages/information-center/official-account-management'),
+          },
+        ],
       },
       {
         key: '/information-center/messages',
@@ -140,6 +196,7 @@ export const navigationConfig: NavigationItem[] = [
         path: '/information-center/messages',
         component: () => import('../pages/information-center/message-management'),
       },
+
     ],
   },
   {        key: '/system-settings',        label: '系统设置',        icon: <SettingOutlined />,        path: '/system-settings',        component: () => import('../pages/system-settings/index'),      },

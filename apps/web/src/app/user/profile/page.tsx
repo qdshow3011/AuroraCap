@@ -26,6 +26,7 @@ export default function Profile() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('');
   const [address, setAddress] = useState('');
+  const [uploading, setUploading] = useState(false);
   
   // Account info state
   const [clientId, setClientId] = useState('');
@@ -130,6 +131,80 @@ export default function Profile() {
 
     fetchUserData();
   }, []);
+
+  // Upload image to Supabase Storage with retry mechanism
+  const uploadImage = async (file: File, retryCount = 0) => {
+    try {
+      setUploading(true);
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const filePath = `neican/${fileName}`;
+      
+      // Add timeout to upload operation
+      const uploadPromise = supabase
+        .storage
+        .from('qdshow101')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout')), 60000)
+      );
+      
+      let uploadResult;
+      try {
+        uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+      } catch (timeoutError) {
+        console.error('Upload timeout:', timeoutError);
+        
+        // Retry if timeout occurs and retry count is less than 2
+        if (retryCount < 2) {
+          console.log('Retrying upload...', retryCount + 1);
+          return uploadImage(file, retryCount + 1);
+        }
+        
+        throw timeoutError;
+      }
+      
+      const { error: uploadError } = uploadResult as { data: any; error: any };
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        
+        // Retry for network-related errors
+        if ((uploadError.message.includes('Failed to fetch') || 
+             uploadError.message.includes('Network error') ||
+             uploadError.message.includes('StorageUnknownError')) && 
+            retryCount < 2) {
+          console.log('Retrying upload due to network error...', retryCount + 1);
+          return uploadImage(file, retryCount + 1);
+        }
+        
+        throw uploadError;
+      }
+      
+      // Get public URL
+      const { data: urlData } = await supabase
+        .storage
+        .from('qdshow101')
+        .getPublicUrl(filePath);
+      
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+      
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,19 +427,31 @@ export default function Profile() {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.files && e.target.files[0]) {
                           const file = e.target.files[0];
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            if (event.target?.result) {
-                              setAvatar(event.target.result as string);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          
+                          try {
+                            // Show preview immediately
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setAvatar(event.target.result as string);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                            
+                            // Upload to Supabase
+                            const avatarUrl = await uploadImage(file);
+                            setAvatar(avatarUrl);
+                          } catch (error) {
+                            console.error('Error uploading image:', error);
+                            setMessage({ type: 'error', text: '图片上传失败，请重试' });
+                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={uploading}
                     />
                   </div>
                   <div className="flex items-end">

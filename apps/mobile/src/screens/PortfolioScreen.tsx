@@ -1,11 +1,63 @@
 import { useEffect, useState, useRef } from 'react'
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, TouchableOpacity, Image, Platform, StatusBar, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, TouchableOpacity, Image, Platform, ActivityIndicator, Modal, Dimensions } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { BlurView } from 'expo-blur'
 import NavChart from '../components/NavChart'
 import { supabase } from '../lib/supabase'
 import { getMarketCategories } from '../api/market'
+
+// 主题色配置
+const THEME = {
+  primary: '#1A4EA2',
+  primaryLight: '#2E6CD1',
+  primaryDark: '#0F3A7A',
+  secondary: '#4CAF50',
+  warning: '#FF9800',
+  error: '#F44336',
+  background: '#F5F7FA',
+  cardBg: '#FFFFFF',
+  textPrimary: '#1A1A2E',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
+  success: '#10B981',
+  danger: '#EF4444',
+  // 圆角规范
+  radius: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    full: 9999
+  },
+  // 阴影规范
+  shadow: {
+    sm: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2
+    },
+    md: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4
+    },
+    lg: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8
+    }
+  }
+}
 
 function format(n: number) {
   return Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -106,6 +158,29 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
 
+  // 菜单显示状态
+  const [showMenu, setShowMenu] = useState(false)
+
+  // 屏幕宽度
+  const screenWidth = Dimensions.get('window').width
+  const menuWidth = screenWidth * 0.7
+
+  // 菜单项配置 - 链接到我的模块中的对应页面
+  const menuItems = [
+    { key: 'versionSwitch', icon: 'layers-outline', labelZh: '版本切换', labelEn: 'Version Switch', screen: 'version-switch' },
+    { key: 'userInfo', icon: 'person-outline', labelZh: '用户信息', labelEn: 'User Info', screen: 'account-info' },
+    { key: 'languageSwitch', icon: 'language-outline', labelZh: '语言切换', labelEn: 'Language', screen: 'interface-settings' },
+    { key: 'helpCenter', icon: 'help-circle-outline', labelZh: '帮助中心', labelEn: 'Help Center', screen: 'help' },
+    { key: 'aboutUs', icon: 'information-circle-outline', labelZh: '关于我们', labelEn: 'About Us', screen: 'about' },
+    { key: 'feedback', icon: 'chatbubble-outline', labelZh: '意见反馈', labelEn: 'Feedback', screen: 'feedback' },
+  ]
+
+  // 菜单项点击处理
+  const handleMenuItemPress = (screen: string) => {
+    setShowMenu(false)
+    onNavigateTo && onNavigateTo(screen)
+  }
+
   // 根据版本调整样式
   const getVersionStyles = () => {
     switch (appVersion) {
@@ -130,7 +205,7 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
           fontSize: { base: 15, large: 18, small: 13 },
           fontWeight: { regular: '400', medium: '500', bold: '700' },
           padding: { base: 16, small: 12 },
-          borderRadius: 8,
+          borderRadius: 12,
           showAll: true
         }
     }
@@ -540,52 +615,52 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#f0f2f5', // 淡浅灰色
+      backgroundColor: THEME.background,
       paddingTop: 0,
     },
-    // 渐变背景样式
+    // 渐变背景样式 - 延伸到状态栏上方
     gradientBackground: {
       position: 'absolute',
-      top: -100, // 向上延伸以覆盖状态栏
+      top: -200,
       left: 0,
       right: 0,
-      height: 400, // 增加高度以确保覆盖状态栏
-      zIndex: -1, // 确保在底层
+      height: 520,
+      zIndex: 0,
     },
     // 弧形底部样式
     curvedBottom: {
       position: 'absolute',
-      bottom: -50,
+      top: 320,
       left: 0,
       right: 0,
       height: 100,
-      backgroundColor: '#f0f2f5',
-      borderTopLeftRadius: 100,
-      borderTopRightRadius: 100,
+      backgroundColor: THEME.background,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      zIndex: 0,
     },
     contentScrollView: {
       flex: 1,
       zIndex: 1,
     },
     section: {
-      backgroundColor: '#fff', // 板块底色白色
-      borderRadius: 12,
-      padding: 16,
-      marginHorizontal: 12, // 缩小左右缝隙
+      backgroundColor: THEME.cardBg,
+      borderRadius: THEME.radius.lg,
+      padding: 20,
+      marginHorizontal: 16,
       marginVertical: 8,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
+      ...THEME.shadow.md,
     },
     sectionTitle: {
       fontSize: 18,
-      fontWeight: 'bold',
-      color: '#333',
+      fontWeight: '700',
+      color: THEME.textPrimary,
+      marginBottom: 4,
+    },
+    sectionSubtitle: {
+      fontSize: 13,
+      color: THEME.textMuted,
+      marginBottom: 16,
     },
     sectionHeader: {
       flexDirection: 'row',
@@ -599,11 +674,13 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
     },
     lastUpdatedText: {
       fontSize: 12,
-      color: '#666',
+      color: THEME.textMuted,
       marginRight: 8,
     },
     refreshButton: {
-      padding: 4,
+      padding: 6,
+      backgroundColor: 'rgba(26, 78, 162, 0.1)',
+      borderRadius: THEME.radius.md,
     },
     loadingContainer: {
       flexDirection: 'row',
@@ -613,42 +690,44 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
     },
     loadingText: {
       fontSize: 14,
-      color: '#666',
+      color: THEME.textSecondary,
       marginLeft: 8,
     },
     tabScrollView: {
       marginBottom: 16,
     },
     tabItem: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      marginRight: 8,
-      backgroundColor: '#f0f0f0',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: THEME.radius.full,
+      marginRight: 10,
+      backgroundColor: '#F3F4F6',
     },
     tabItemSelected: {
-      backgroundColor: '#1a73e8',
+      backgroundColor: THEME.primary,
+      ...THEME.shadow.sm,
     },
     tabText: {
       fontSize: 14,
-      color: '#666',
+      color: THEME.textSecondary,
+      fontWeight: '500',
     },
     tabTextSelected: {
       color: '#fff',
-      fontWeight: 'bold',
+      fontWeight: '600',
     },
     selectedIndicesContainer: {
-      backgroundColor: '#f8f9fa',
-      borderRadius: 8,
-      padding: 12,
+      backgroundColor: '#F9FAFB',
+      borderRadius: THEME.radius.md,
+      padding: 16,
     },
     indexRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 8,
+      paddingVertical: 12,
       borderBottomWidth: 1,
-      borderBottomColor: '#e9ecef',
+      borderBottomColor: '#F3F4F6',
     },
     indexRowLast: {
       borderBottomWidth: 0,
@@ -657,186 +736,188 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
       flex: 1,
     },
     indexName: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
+      fontSize: 15,
+      fontWeight: '600',
+      color: THEME.textPrimary,
     },
     indexCode: {
       fontSize: 12,
-      color: '#666',
+      color: THEME.textMuted,
       marginTop: 2,
     },
     indexValueContainer: {
       alignItems: 'flex-end',
     },
     indexValue: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
+      fontSize: 16,
+      fontWeight: '700',
+      color: THEME.textPrimary,
     },
     changeContainer: {
       flexDirection: 'row',
-      marginTop: 2,
+      marginTop: 4,
+      gap: 8,
     },
     indexChange: {
-      fontSize: 12,
-      marginRight: 8,
+      fontSize: 13,
+      fontWeight: '600',
     },
     indexChangeValue: {
-      fontSize: 12,
+      fontSize: 13,
+      fontWeight: '600',
     },
     changePositive: {
-      color: '#d93025',
+      color: THEME.danger,
     },
     changeNegative: {
-      color: '#188038',
+      color: THEME.success,
     },
     portfolioCard: {
-      backgroundColor: '#f8f9fa',
-      borderRadius: 8,
-      padding: 16,
+      backgroundColor: '#F9FAFB',
+      borderRadius: THEME.radius.md,
+      padding: 20,
     },
     portfolioItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: 16,
     },
     portfolioItemLast: {
       marginBottom: 0,
     },
     portfolioLabel: {
       fontSize: 14,
-      color: '#666',
+      color: THEME.textSecondary,
+      fontWeight: '500',
     },
     portfolioValue: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#333',
+      fontSize: 18,
+      fontWeight: '700',
+      color: THEME.textPrimary,
     },
     positiveIncome: {
-      color: '#d93025',
+      color: THEME.danger,
     },
     negativeIncome: {
-      color: '#188038',
+      color: THEME.success,
     },
     chartContainer: {
       height: 200,
       marginTop: 16,
     },
     insiderList: {
-      backgroundColor: '#f8f9fa',
-      borderRadius: 8,
-      padding: 12,
+      gap: 16,
     },
     insiderItem: {
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: '#e9ecef',
+      backgroundColor: '#F9FAFB',
+      borderRadius: THEME.radius.md,
+      overflow: 'hidden',
+      ...THEME.shadow.sm,
     },
-    insiderItemLast: {
-      borderBottomWidth: 0,
+    insiderImage: {
+      width: '100%',
+      height: 140,
+    },
+    insiderContent: {
+      padding: 16,
     },
     insiderHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 4,
+      alignItems: 'flex-start',
+      marginBottom: 8,
     },
     insiderTitle: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
+      fontSize: 15,
+      fontWeight: '600',
+      color: THEME.textPrimary,
       flex: 1,
       marginRight: 8,
+      lineHeight: 22,
     },
     insiderDate: {
       fontSize: 12,
-      color: '#666',
+      color: THEME.textMuted,
     },
     insiderSummary: {
-      fontSize: 12,
-      color: '#666',
-      lineHeight: 16,
-      marginBottom: 8,
+      fontSize: 13,
+      color: THEME.textSecondary,
+      lineHeight: 20,
+      marginBottom: 12,
     },
     categoryTag: {
-      backgroundColor: '#e3f2fd',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 4,
+      backgroundColor: 'rgba(26, 78, 162, 0.1)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: THEME.radius.sm,
+      alignSelf: 'flex-start',
     },
     categoryTagText: {
       fontSize: 11,
-      color: '#1976d2',
-      fontWeight: '500',
+      color: THEME.primary,
+      fontWeight: '600',
     },
     viewDetails: {
-      fontSize: 12,
-      color: '#1a73e8',
-      fontWeight: '500',
-    },
-    insiderImage: {
-      width: '100%',
-      height: 160,
-      borderRadius: 8,
-      marginBottom: 12,
+      fontSize: 13,
+      color: THEME.primary,
+      fontWeight: '600',
+      marginTop: 12,
     },
     productList: {
-      backgroundColor: '#f8f9fa',
-      borderRadius: 8,
-      padding: 12,
+      gap: 16,
     },
     productCard: {
-      backgroundColor: '#fff',
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 12,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 1,
-      },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 2,
+      backgroundColor: THEME.cardBg,
+      borderRadius: THEME.radius.lg,
+      padding: 20,
+      ...THEME.shadow.md,
+      borderWidth: 1,
+      borderColor: '#F3F4F6',
     },
     productHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
+      alignItems: 'flex-start',
+      marginBottom: 12,
     },
     productName: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
+      fontSize: 16,
+      fontWeight: '700',
+      color: THEME.textPrimary,
+      marginBottom: 4,
     },
     productCode: {
-      fontSize: 12,
-      color: '#666',
-      marginTop: 2,
+      fontSize: 13,
+      color: THEME.textMuted,
     },
     productReturn: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#188038',
+      fontSize: 20,
+      fontWeight: '800',
     },
     positiveReturn: {
-      color: '#188038',
+      color: THEME.success,
     },
     negativeReturn: {
-      color: '#d93025',
+      color: THEME.danger,
     },
     productDescription: {
-      fontSize: 12,
-      color: '#666',
-      lineHeight: 16,
+      fontSize: 13,
+      color: THEME.textSecondary,
+      lineHeight: 20,
+      marginBottom: 16,
+    },
+    productActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: '#F3F4F6',
     },
     productReturnLabel: {
       fontSize: 12,
-      color: '#666',
-      marginTop: 4,
+      color: THEME.textMuted,
     },
     // 搜索相关样式
     searchContainer: {
@@ -847,11 +928,18 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-start',
+      paddingHorizontal: 16,
     },
     // 左侧菜单按钮
     menuButton: {
-      marginRight: 8,
-      padding: 6,
+      width: 40,
+      height: 40,
+      borderRadius: THEME.radius.md,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+      ...THEME.shadow.sm,
     },
     // 搜索框右侧的按钮容器
     searchRightButtons: {
@@ -863,49 +951,38 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#fafafa',
-      borderRadius: 24,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: THEME.radius.xl,
       paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingVertical: 10,
+      ...THEME.shadow.md,
     },
     searchIcon: {
       fontSize: 16,
-      color: '#666',
-      marginRight: 8,
+      color: THEME.textMuted,
+      marginRight: 10,
     },
     searchInput: {
       flex: 1,
       fontSize: 14,
-      color: '#333',
-      paddingVertical: 8,
+      color: THEME.textPrimary,
+      paddingVertical: 4,
     },
     clearIcon: {
       fontSize: 16,
-      color: '#666',
+      color: THEME.textMuted,
       padding: 4,
     },
     // 客服和信息按钮样式
-    serviceButton: {
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: THEME.radius.md,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
       marginLeft: 8,
-      padding: 8,
-    },
-    serviceIcon: {
-      fontSize: 18,
-    },
-    infoButton: {
-      marginLeft: 8,
-      padding: 8,
-    },
-    infoIcon: {
-      fontSize: 18,
-    },
-    // 版本切换按钮样式
-    versionButton: {
-      marginLeft: 8,
-      padding: 8,
-    },
-    versionIcon: {
-      fontSize: 18,
+      ...THEME.shadow.sm,
     },
     // 通知标记样式
     notificationContainer: {
@@ -913,219 +990,319 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
     },
     notificationBadge: {
       position: 'absolute',
-      top: -4,
-      right: -4,
-      backgroundColor: '#d93025',
+      top: -6,
+      right: -6,
+      backgroundColor: THEME.error,
       borderRadius: 10,
-      minWidth: 18,
-      height: 18,
+      minWidth: 20,
+      height: 20,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 2,
+      borderColor: THEME.primary,
+      ...THEME.shadow.sm,
     },
     notificationText: {
       color: '#fff',
       fontSize: 10,
       fontWeight: 'bold',
       textAlign: 'center',
-      paddingHorizontal: 3,
+      paddingHorizontal: 4,
     },
     searchResultsContainer: {
-      backgroundColor: '#fff',
-      borderRadius: 8,
-      padding: 8,
-      marginTop: 8,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
+      backgroundColor: THEME.cardBg,
+      borderRadius: THEME.radius.lg,
+      padding: 12,
+      marginTop: 12,
+      marginHorizontal: 16,
+      ...THEME.shadow.lg,
     },
     searchResultItem: {
-      padding: 12,
+      padding: 14,
       borderBottomWidth: 1,
-      borderBottomColor: '#f0f0f0',
+      borderBottomColor: '#F3F4F6',
     },
     searchResultTitle: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
+      fontSize: 15,
+      fontWeight: '600',
+      color: THEME.textPrimary,
       marginBottom: 4,
     },
     searchResultType: {
       fontSize: 12,
-      color: '#666',
+      color: THEME.textMuted,
     },
     // 功能按钮相关样式
     functionButtonsContainer: {
-      backgroundColor: '#f0f2f5',
-      paddingHorizontal: 12,
-      paddingBottom: 12,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
     },
     functionButtonsSection: {
-      backgroundColor: '#fff',
-      borderRadius: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+      borderRadius: THEME.radius.lg,
       padding: 20,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 1,
-      },
-      shadowOpacity: 0.08,
-      shadowRadius: 3,
-      elevation: 2,
+      ...THEME.shadow.md,
     },
     buttonRow: {
       flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginBottom: 20,
-    },
-    buttonRowLast: {
-      marginBottom: 0,
+      justifyContent: 'space-between',
+      gap: 12,
     },
     functionButton: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#fff',
-      borderRadius: 12,
-      paddingVertical: 18,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: THEME.radius.md,
+      paddingVertical: 16,
       paddingHorizontal: 8,
-      marginHorizontal: 8,
-      borderWidth: 0,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 1,
-      },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
+      ...THEME.shadow.sm,
     },
     functionButtonIcon: {
-      fontSize: 28,
-      marginBottom: 6,
+      width: 44,
+      height: 44,
+      borderRadius: THEME.radius.md,
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    functionButtonIconText: {
+      fontSize: 22,
     },
     functionButtonText: {
       fontSize: 13,
-      color: '#333',
+      color: '#fff',
       textAlign: 'center',
-      fontWeight: '500',
+      fontWeight: '600',
     },
     // 产品卡片相关样式
-    productActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 12,
-    },
     subscribeButton: {
-      backgroundColor: '#188038',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 8,
+      backgroundColor: THEME.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: THEME.radius.md,
+      ...THEME.shadow.sm,
     },
     subscribeButtonText: {
       color: '#fff',
       fontSize: 14,
+      fontWeight: '700',
+    },
+    // 菜单相关样式
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      flexDirection: 'row',
+    },
+    menuContainer: {
+      backgroundColor: THEME.cardBg,
+      height: '100%',
+      ...THEME.shadow.lg,
+    },
+    menuHeader: {
+      backgroundColor: THEME.primary,
+      paddingTop: isWeb ? 20 : 48 + insets.top,
+      paddingHorizontal: 24,
+      paddingBottom: 24,
+    },
+    menuHeaderText: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: '#fff',
+    },
+    menuHeaderSubtext: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.7)',
+      marginTop: 4,
+    },
+    menuContent: {
+      flex: 1,
+      paddingTop: 8,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: '#F3F4F6',
+    },
+    menuItemIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: THEME.radius.md,
+      backgroundColor: 'rgba(26, 78, 162, 0.1)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    menuItemText: {
+      fontSize: 16,
+      color: THEME.textPrimary,
+      fontWeight: '500',
+    },
+    menuCloseArea: {
+      flex: 1,
+    },
+    // 尊享版专属服务样式
+    premiumServices: {
+      backgroundColor: 'rgba(26, 78, 162, 0.05)',
+      borderRadius: THEME.radius.lg,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(26, 78, 162, 0.1)',
+    },
+    premiumServiceItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+    },
+    premiumServiceIcon: {
+      fontSize: 28,
+      marginRight: 16,
+    },
+    premiumServiceContent: {
+      flex: 1,
+    },
+    premiumServiceTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: THEME.textPrimary,
+      marginBottom: 2,
+    },
+    premiumServiceDescription: {
+      fontSize: 13,
+      color: THEME.textSecondary,
+    },
+    premiumServiceArrow: {
+      fontSize: 20,
+      color: THEME.primary,
       fontWeight: '600',
+    },
+    premiumServiceDivider: {
+      height: 1,
+      backgroundColor: 'rgba(26, 78, 162, 0.1)',
     },
   })
   
   return (
     <View style={styles.container}>
       {/* 沉浸式状态栏 */}
-      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" />
+
+      {/* 配置菜单 Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showMenu}
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <View style={styles.menuOverlay}>
+          <View style={[styles.menuContainer, { width: menuWidth }]}>
+            {/* 菜单头部 */}
+            <LinearGradient
+              colors={[THEME.primary, THEME.primaryLight]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.menuHeader}
+            >
+              <Text style={styles.menuHeaderText}>
+                {lang === 'zh' ? '配置' : 'Settings'}
+              </Text>
+              <Text style={styles.menuHeaderSubtext}>
+                {userInfo?.nickname || (lang === 'zh' ? '欢迎回来' : 'Welcome Back')}
+              </Text>
+            </LinearGradient>
+            {/* 菜单内容 */}
+            <View style={styles.menuContent}>
+              {menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.menuItem,
+                    index === menuItems.length - 1 && { borderBottomWidth: 0 }
+                  ]}
+                  onPress={() => handleMenuItemPress(item.screen)}
+                >
+                  <View style={styles.menuItemIcon}>
+                    <Ionicons
+                      name={item.icon as any}
+                      size={22}
+                      color={THEME.primary}
+                    />
+                  </View>
+                  <Text style={styles.menuItemText}>
+                    {lang === 'zh' ? item.labelZh : item.labelEn}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          {/* 点击关闭区域 */}
+          <TouchableOpacity
+            style={styles.menuCloseArea}
+            onPress={() => setShowMenu(false)}
+          />
+        </View>
+      </Modal>
       
       {/* 渐变背景 - 完全覆盖状态栏 */}
       <LinearGradient
-        colors={['#1A4EA2', '#2E6CD1']}
+        colors={[THEME.primary, THEME.primaryLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={{
-          position: 'absolute',
-          top: -200, // 向上延伸更多距离，确保完全覆盖状态栏区域
-          left: 0,
-          right: 0,
-          height: 450, // 增加高度，确保完全覆盖状态栏和顶部区域
-          zIndex: 0,
-        }}
+        style={styles.gradientBackground}
       />
       
       {/* 弧形底部覆盖 */}
-      <View style={{
-        position: 'absolute',
-        top: 250,
-        left: 0,
-        right: 0,
-        height: 100,
-        backgroundColor: '#f0f2f5',
-        borderTopLeftRadius: 100,
-        borderTopRightRadius: 100,
-        zIndex: 0,
-      }} />
+      <View style={styles.curvedBottom} />
       
       {/* 固定搜索框区块 */}
-      <View style={{ paddingHorizontal: 12, paddingVertical: 16, paddingTop: isWeb ? 20 : 40 + insets.top, zIndex: 2, position: 'relative' }}>
+      <View style={{ paddingTop: isWeb ? 20 : 48 + insets.top, zIndex: 2, position: 'relative' }}>
         <View style={styles.searchBoxContainer}>
-          {/* 左侧三横杠图标 */}
-          <TouchableOpacity style={styles.menuButton} onPress={() => {
-            console.log('菜单按钮被点击');
-          }}>
-            <Ionicons name="menu-outline" size={20} color="#fff" />
+          {/* 左侧菜单按钮 */}
+          <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
+            <Ionicons name="menu-outline" size={22} color="#fff" />
           </TouchableOpacity>
           
           {/* 搜索框 */}
-          <View style={[styles.searchBox, { backgroundColor: 'rgba(255, 255, 255, 0.9)', paddingVertical: 6, paddingHorizontal: 12 }]}>
-            <Ionicons name="search-outline" size={14} color="#666" style={[styles.searchIcon, { marginRight: 6 }]} />
-            <TextInput
-              style={[styles.searchInput, { fontSize: 12 }]}
-              placeholder={lang === 'zh' ? '输入文字进行搜索' : 'Enter the text to search'}
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setShowSearchResults(true)}
-              onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-outline" size={14} color="#666" style={styles.clearIcon} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <BlurView intensity={20} tint="light" style={{ flex: 1, borderRadius: THEME.radius.xl, overflow: 'hidden' }}>
+            <View style={styles.searchBox}>
+              <Ionicons name="search-outline" size={18} color={THEME.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={lang === 'zh' ? '搜索产品、内参、资讯...' : 'Search products, insights...'}
+                placeholderTextColor={THEME.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={THEME.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </BlurView>
           
-          {/* 搜索框右侧的客服和消息按钮 */}
-          <View style={[styles.searchRightButtons, { marginLeft: 6 }]}>
-            {/* 消息中心图标 */}
-            <TouchableOpacity style={[styles.serviceButton, { marginLeft: 6, padding: 6 }]} onPress={() => {
-              console.log('消息中心按钮被点击，跳转到消息中心页面');
-              onNavigateTo && onNavigateTo('message-center');
-            }}>
+          {/* 搜索框右侧按钮 */}
+          <View style={styles.searchRightButtons}>
+            {/* 消息中心 */}
+            <TouchableOpacity style={styles.iconButton} onPress={() => onNavigateTo && onNavigateTo('message-center')}>
               <View style={styles.notificationContainer}>
                 <Ionicons name="notifications-outline" size={20} color="#fff" />
-                {/* 只有当有未读消息时才显示通知徽章 */}
                 {unreadMessages > 0 && (
                   <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationText}>{unreadMessages}</Text>
+                    <Text style={styles.notificationText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
-            {/* 在线客服图标 */}
-            <TouchableOpacity style={[styles.serviceButton, { marginLeft: 6, padding: 6 }]} onPress={() => {
-              console.log('客服按钮被点击，跳转到客服页面');
-              onNavigateTo && onNavigateTo('customer-service');
-            }}>
-              <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-            {/* 版本切换图标 */}
-            <TouchableOpacity style={[styles.serviceButton, { marginLeft: 6, padding: 6 }]} onPress={() => {
-              console.log('版本切换按钮被点击，跳转到版本切换页面');
-              onNavigateTo && onNavigateTo('version-switch');
-            }}>
-              <Ionicons name="settings-outline" size={20} color="#fff" />
+            {/* 在线客服 */}
+            <TouchableOpacity style={styles.iconButton} onPress={() => onNavigateTo && onNavigateTo('customer-service')}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1133,83 +1310,80 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
       
       {/* 主内容 - 包含可滚动内容 */}
       <View style={{ flex: 1, zIndex: 1 }}>
-      {/* 可滚动内容区 */}
-      <ScrollView style={[styles.contentScrollView, { marginTop: 0 }]} showsVerticalScrollIndicator={false}>
+        {/* 可滚动内容区 */}
+        <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
 
-      {/* 搜索结果 */}
-      {showSearchResults && searchResults.length > 0 && (
-        <View style={[styles.searchResultsContainer, { backgroundColor: 'rgba(255, 255, 255, 0.95)', marginHorizontal: 12, marginBottom: 16 }]}>
-          {searchResults.map((result, index) => (
-            <TouchableOpacity key={index} style={styles.searchResultItem}>
-              <Text style={styles.searchResultTitle}>{result.title || result.name}</Text>
-              <Text style={styles.searchResultType}>
-                {result.type === 'product' ? (lang === 'zh' ? '资管产品' : 'Product') :
-                 result.type === 'insider' ? (lang === 'zh' ? '内参' : 'Insider') :
-                 result.type === 'news' ? (lang === 'zh' ? '快讯' : 'News') :
-                 lang === 'zh' ? '其他' : 'Other'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+          {/* 搜索结果 */}
+          {showSearchResults && searchResults.length > 0 && (
+            <View style={styles.searchResultsContainer}>
+              {searchResults.map((result, index) => (
+                <TouchableOpacity key={index} style={[
+                  styles.searchResultItem,
+                  index === searchResults.length - 1 && { borderBottomWidth: 0 }
+                ]}>
+                  <Text style={styles.searchResultTitle}>{result.title || result.name}</Text>
+                  <Text style={styles.searchResultType}>
+                    {result.type === 'product' ? (lang === 'zh' ? '资管产品' : 'Product') :
+                     result.type === 'insider' ? (lang === 'zh' ? '内参' : 'Insider') :
+                     result.type === 'news' ? (lang === 'zh' ? '快讯' : 'News') :
+                     lang === 'zh' ? '其他' : 'Other'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-        {/* 常用功能按钮区域 */}
-        <View style={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingBottom: 12 }}>
-          <View style={[styles.functionButtonsSection, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
-            {/* 功能按钮行 */}
-            <View style={[styles.buttonRow, { marginHorizontal: 0 }]}>
-              <Pressable style={[styles.functionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 4 }]} onPress={() => {
-                console.log('资产状况 - 跳转到资产状况页面');
-                // 实际实现：跳转到资产状况页面，展示总资产、基金市值、现金余额、在途资金
-                onNavigateTo && onNavigateTo('assetStatus');
-              }}>
-                <Text style={styles.functionButtonIcon}>🔄</Text>
-                <Text style={[styles.functionButtonText, { color: '#fff' }]}>资产状况</Text>
-              </Pressable>
-              <Pressable style={[styles.functionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 4 }]} onPress={() => {
-                console.log('持仓状况 - 跳转到持仓状况页面');
-                // 实际实现：跳转到持仓状况页面，展示持有基金列表及相关数据
-                onNavigateTo && onNavigateTo('holdings');
-              }}>
-                <Text style={styles.functionButtonIcon}>📊</Text>
-                <Text style={[styles.functionButtonText, { color: '#fff' }]}>持仓状况</Text>
-              </Pressable>
-              <Pressable style={[styles.functionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 4 }]} onPress={() => {
-                console.log('资金往来 - 跳转到资金往来页面');
-                // 实际实现：跳转到资金往来页面，包含申购、赎回、出金申请记录
-                onNavigateTo && onNavigateTo('fundTransactions');
-              }}>
-                <Text style={styles.functionButtonIcon}>↔️</Text>
-                <Text style={[styles.functionButtonText, { color: '#fff' }]}>资金往来</Text>
-              </Pressable>
-              <Pressable style={[styles.functionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 4 }]} onPress={() => {
-                console.log('交易记录 - 跳转到交易记录页面');
-                // 实际实现：跳转到交易记录页面，包含申购和赎回记录
-                onNavigateTo && onNavigateTo('subscriptionRedemptionRecords');
-              }}>
-                <Text style={styles.functionButtonIcon}>📋</Text>
-                <Text style={[styles.functionButtonText, { color: '#fff' }]}>交易记录</Text>
-              </Pressable>
+          {/* 常用功能按钮区域 */}
+          <View style={styles.functionButtonsContainer}>
+            <View style={styles.functionButtonsSection}>
+              <View style={styles.buttonRow}>
+                <Pressable style={styles.functionButton} onPress={() => onNavigateTo && onNavigateTo('assetStatus')}>
+                  <View style={styles.functionButtonIcon}>
+                    <Ionicons name="wallet-outline" size={24} color="#fff" />
+                  </View>
+                  <Text style={styles.functionButtonText}>资产状况</Text>
+                </Pressable>
+                <Pressable style={styles.functionButton} onPress={() => onNavigateTo && onNavigateTo('holdings')}>
+                  <View style={styles.functionButtonIcon}>
+                    <Ionicons name="pie-chart-outline" size={24} color="#fff" />
+                  </View>
+                  <Text style={styles.functionButtonText}>持仓状况</Text>
+                </Pressable>
+                <Pressable style={styles.functionButton} onPress={() => onNavigateTo && onNavigateTo('fundTransactions')}>
+                  <View style={styles.functionButtonIcon}>
+                    <Ionicons name="swap-vertical-outline" size={24} color="#fff" />
+                  </View>
+                  <Text style={styles.functionButtonText}>资金往来</Text>
+                </Pressable>
+                <Pressable style={styles.functionButton} onPress={() => onNavigateTo && onNavigateTo('subscriptionRedemptionRecords')}>
+                  <View style={styles.functionButtonIcon}>
+                    <Ionicons name="document-text-outline" size={24} color="#fff" />
+                  </View>
+                  <Text style={styles.functionButtonText}>交易记录</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
 
           {/* 证券市场行情独立板块 */}
-          <View style={[styles.section, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]}>
+          <View style={styles.section}>
             {/* 标题和刷新控件 */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{lang === 'zh' ? '证券市场行情' : 'Market Overview'}</Text>
+              <View>
+                <Text style={styles.sectionTitle}>{lang === 'zh' ? '证券市场行情' : 'Market Overview'}</Text>
+                <Text style={styles.sectionSubtitle}>{lang === 'zh' ? '实时追踪全球主要指数' : 'Track global indices in real-time'}</Text>
+              </View>
               <View style={styles.refreshControl}>
                 {lastUpdated && (
                   <Text style={styles.lastUpdatedText}>
-                    {lang === 'zh' ? '最后更新: ' : 'Last updated: '}{lastUpdated}
+                    {lastUpdated}
                   </Text>
                 )}
                 <TouchableOpacity onPress={refreshMarketData} style={styles.refreshButton}>
                   {isLoading ? (
-                    <ActivityIndicator size="small" color="#1a73e8" />
+                    <ActivityIndicator size="small" color={THEME.primary} />
                   ) : (
-                    <Ionicons name="refresh-outline" size={20} color="#1a73e8" />
+                    <Ionicons name="refresh" size={18} color={THEME.primary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -1243,14 +1417,14 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
               <View style={styles.selectedIndicesContainer}>
                 {isLoading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#1a73e8" />
+                    <ActivityIndicator size="small" color={THEME.primary} />
                     <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
                   </View>
                 ) : (
                   marketCategories
                     .find(category => category.id === selectedCategory)
-                    ?.indices.map(index => (
-                      <View key={index.id} style={styles.indexRow}>
+                    ?.indices.map((index, idx, arr) => (
+                      <View key={index.id} style={[styles.indexRow, idx === arr.length - 1 && styles.indexRowLast]}>
                         <View style={styles.indexInfo}>
                           <Text style={styles.indexName}>{index.name}</Text>
                           <Text style={styles.indexCode}>{index.code}</Text>
@@ -1261,7 +1435,7 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
                             <Text 
                               style={[
                                 styles.indexChange, 
-                                index.changePercent >= 0 ? styles.changeNegative : styles.changePositive
+                                index.changePercent >= 0 ? styles.changePositive : styles.changeNegative
                               ]}
                             >
                               {index.changePercent >= 0 ? '+' : ''}{index.changePercent.toFixed(2)}%
@@ -1269,7 +1443,7 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
                             <Text 
                               style={[
                                 styles.indexChangeValue, 
-                                index.changePercent >= 0 ? styles.changeNegative : styles.changePositive
+                                index.changePercent >= 0 ? styles.changePositive : styles.changeNegative
                               ]}
                             >
                               {index.changePercent >= 0 ? '+' : ''}{index.change.toFixed(2)}
@@ -1284,209 +1458,197 @@ export default function PortfolioScreen({ lang = 'zh', observerHoldings, demo, u
           </View>
           
           {/* 第一栏：客户持仓状况汇总 */}
-          <View style={[styles.section, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]}>
-          <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.portfolio}</Text>
-          <View style={[styles.portfolioCard, {
-            padding: versionStyles.padding.base,
-            borderRadius: versionStyles.borderRadius,
-            backgroundColor: appVersion === 'premium' ? 'rgba(240, 244, 255, 0.95)' : 'rgba(248, 249, 250, 0.95)',
-            ...(appVersion === 'premium' ? {
-              shadowColor: '#4a90e2',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 8
-            } : {})
-          }]}>
-            <View style={styles.portfolioItem}>
-              <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.totalAssets}</Text>
-              <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(totalAssets)}</Text>
-            </View>
-            <View style={styles.portfolioItem}>
-              <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.fundHolding}</Text>
-              <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(fundHolding)}</Text>
-            </View>
-            {appVersion !== 'simple' && (
-              <View style={styles.portfolioItem}>
-                <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.ibCash}</Text>
-                <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(ibCash)}</Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>{t.portfolio}</Text>
+                <Text style={styles.sectionSubtitle}>{lang === 'zh' ? '实时查看您的资产状况' : 'View your assets in real-time'}</Text>
               </View>
-            )}
-            <View style={styles.portfolioItem}>
-              <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.recentIncome}</Text>
-              <Text style={[
-                styles.portfolioValue, 
-                { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold },
-                recentIncome >= 0 ? styles.negativeIncome : styles.positiveIncome
-              ]}>
-                {recentIncome >= 0 ? '+' : ''}${format(Math.abs(recentIncome))}
-              </Text>
             </View>
-            {appVersion !== 'simple' && (
+            <View style={[styles.portfolioCard, {
+              backgroundColor: appVersion === 'premium' ? 'rgba(26, 78, 162, 0.05)' : '#F9FAFB',
+            }]}>
               <View style={styles.portfolioItem}>
-                <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.holdingIncome}</Text>
+                <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.totalAssets}</Text>
+                <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(totalAssets)}</Text>
+              </View>
+              <View style={styles.portfolioItem}>
+                <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.fundHolding}</Text>
+                <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(fundHolding)}</Text>
+              </View>
+              {appVersion !== 'simple' && (
+                <View style={styles.portfolioItem}>
+                  <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.ibCash}</Text>
+                  <Text style={[styles.portfolioValue, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>${format(ibCash)}</Text>
+                </View>
+              )}
+              <View style={styles.portfolioItem}>
+                <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.recentIncome}</Text>
                 <Text style={[
                   styles.portfolioValue, 
                   { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold },
-                  holdingIncome >= 0 ? styles.negativeIncome : styles.positiveIncome
+                  recentIncome >= 0 ? styles.positiveIncome : styles.negativeIncome
                 ]}>
-                  {holdingIncome >= 0 ? '+' : ''}${format(Math.abs(holdingIncome))} ({holdingIncome >= 0 ? '+' : ''}{((holdingIncome / (totalAssets - holdingIncome)) * 100).toFixed(2)}%)
+                  {recentIncome >= 0 ? '+' : ''}${format(Math.abs(recentIncome))}
                 </Text>
+              </View>
+              {appVersion !== 'simple' && (
+                <View style={[styles.portfolioItem, styles.portfolioItemLast]}>
+                  <Text style={[styles.portfolioLabel, { fontSize: versionStyles.fontSize.base }]}>{t.holdingIncome}</Text>
+                  <Text style={[
+                    styles.portfolioValue, 
+                    { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold },
+                    holdingIncome >= 0 ? styles.positiveIncome : styles.negativeIncome
+                  ]}>
+                    {holdingIncome >= 0 ? '+' : ''}${format(Math.abs(holdingIncome))}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {navSeries.length > 0 && appVersion !== 'simple' && (
+              <View style={styles.chartContainer}>
+                <NavChart data={navSeries} />
               </View>
             )}
           </View>
-          {navSeries.length > 0 && appVersion !== 'simple' && (
-            <View style={styles.chartContainer}>
-              <NavChart data={navSeries} />
+          
+          {/* 第二栏：内参快递 */}
+          {appVersion !== 'simple' && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>{t.insiderExpress}</Text>
+                  <Text style={styles.sectionSubtitle}>{lang === 'zh' ? '专业投资内参，把握市场脉搏' : 'Professional investment insights'}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.insiderList}>
+                {insiderArticles.map((article, index) => (
+                  <Pressable 
+                    key={article.id} 
+                    style={[styles.insiderItem, index === insiderArticles.length - 1 && { marginBottom: 0 }]}
+                    onPress={() => handleInsiderArticlePress(article)}
+                  >
+                    {/* 封面图片 */}
+                    <Image 
+                      source={{ uri: article.cover_image || 'https://picsum.photos/600/300' }} 
+                      style={styles.insiderImage} 
+                      resizeMode="cover"
+                    />
+                    
+                    <View style={styles.insiderContent}>
+                      <View style={styles.insiderHeader}>
+                        <Text style={[styles.insiderTitle, { fontSize: versionStyles.fontSize.base }]} numberOfLines={2}>
+                          {removeHtmlTags(article.title)}
+                        </Text>
+                      </View>
+                      <Text style={[styles.insiderSummary, { fontSize: versionStyles.fontSize.small }]} numberOfLines={2}>
+                        {article.summary}
+                      </Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={styles.categoryTag}>
+                          <Text style={styles.categoryTagText}>{getCategoryName(article.category_id)}</Text>
+                        </View>
+                        <Text style={styles.insiderDate}>{article.date}</Text>
+                      </View>
+                      <Text style={styles.viewDetails}>{t.viewDetails} →</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           )}
-        </View>
-        
-        {/* 第二栏：内参快递 */}
-        {appVersion !== 'simple' && (
-          <View style={[styles.section, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]}>
-            <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.insiderExpress}</Text>
-            
-
-            
-            <View style={[styles.insiderList, {
-              padding: versionStyles.padding.small,
-              borderRadius: versionStyles.borderRadius
-            }]}>
-              {insiderArticles
-                .map((article) => (
-                <Pressable key={article.id} style={styles.insiderItem} onPress={() => handleInsiderArticlePress(article)}>
-                  {/* 封面图片 */}
-                  <Image 
-                    source={{ uri: article.cover_image || 'https://picsum.photos/600/300' }} 
-                    style={styles.insiderImage} 
-                    resizeMode="cover"
-                  />
-                  
-                  <View style={styles.insiderHeader}>
-                    <Text style={[styles.insiderTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium, marginBottom: 8 }]} numberOfLines={2}>{removeHtmlTags(article.title)}</Text>
-                  </View>
-                  <Text style={[styles.insiderSummary, { fontSize: versionStyles.fontSize.small, lineHeight: 18 }]} numberOfLines={3}>{article.summary}</Text>
-                  <Text style={[styles.viewDetails, { fontSize: versionStyles.fontSize.small }]}>{t.viewDetails} →</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-        
-        {/* 第三栏：基金产品推介 */}
-        {appVersion !== 'simple' && (
-          <View style={[styles.section, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]}>
-            <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{lang === 'zh' ? '基金产品推介' : 'Fund Product Recommendation'}</Text>
-            <View style={[styles.productList, {
-              padding: versionStyles.padding.small,
-              borderRadius: versionStyles.borderRadius
-            }]}>
-              {fundProducts.map((product) => (
-                <Pressable 
-                  key={product.id} 
-                  style={[styles.productCard, {
-                    borderRadius: versionStyles.borderRadius,
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    ...(appVersion === 'premium' ? {
-                      borderWidth: 1,
-                      borderColor: '#4a90e2',
-                      shadowColor: '#4a90e2',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
-                      elevation: 6
-                    } : {})
-                  }]} 
-                  onPress={() => onProductPress && onProductPress(product)}
-                >
-                  <View style={styles.productHeader}>
-                    <View>
-                      <Text style={[styles.productName, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>{product.name}</Text>
-                      <Text style={[styles.productCode, { fontSize: versionStyles.fontSize.small }]}>{product.code}</Text>
+          
+          {/* 第三栏：基金产品推介 */}
+          {appVersion !== 'simple' && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>{lang === 'zh' ? '基金产品推介' : 'Fund Product Recommendation'}</Text>
+                  <Text style={styles.sectionSubtitle}>{lang === 'zh' ? '精选优质基金，助力财富增值' : 'Curated funds for wealth growth'}</Text>
+                </View>
+              </View>
+              <View style={styles.productList}>
+                {fundProducts.map((product, index) => (
+                  <Pressable 
+                    key={product.id} 
+                    style={[styles.productCard, index === fundProducts.length - 1 && { marginBottom: 0 }]}
+                    onPress={() => onProductPress && onProductPress(product)}
+                  >
+                    <View style={styles.productHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.productName, { fontSize: versionStyles.fontSize.base }]}>{product.name}</Text>
+                        <Text style={[styles.productCode, { fontSize: versionStyles.fontSize.small }]}>{product.code}</Text>
+                      </View>
+                      <Text style={[
+                        styles.productReturn, 
+                        product.returnRate > 0 ? styles.positiveReturn : styles.negativeReturn
+                      ]}>
+                        {product.returnRate > 0 ? '+' : ''}{product.returnRate}%
+                      </Text>
                     </View>
-                    <Text style={[styles.productReturn, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }, product.returnRate > 0 ? styles.positiveReturn : styles.negativeReturn]}>
-                      {product.returnRate > 0 ? '+' : ''}{product.returnRate}%
+                    <Text style={[styles.productDescription, { fontSize: versionStyles.fontSize.small }]} numberOfLines={2}>
+                      {product.description}
                     </Text>
-                  </View>
-                  <Text style={[styles.productDescription, { fontSize: versionStyles.fontSize.small }]}>{product.description}</Text>
-                  <View style={styles.productActions}>
-                    <Text style={[styles.productReturnLabel, { fontSize: versionStyles.fontSize.small }]}>{t.yearReturn}</Text>
-                    {/* 申购申请按钮 */}
-                    <TouchableOpacity 
-                      style={[styles.subscribeButton, {
-                        ...(appVersion === 'premium' ? {
-                          backgroundColor: '#4a90e2',
-                          shadowColor: '#4a90e2',
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 4,
-                          elevation: 5
-                        } : {})
-                      }]} 
-                      onPress={() => onNavigateToSubscriptionApplication && onNavigateToSubscriptionApplication(product)}
-                    >
-                      <Text style={styles.subscribeButtonText}>{lang === 'zh' ? '申购申请' : 'Subscribe'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-        
-        {/* 尊享版专属服务入口 */}
-        {appVersion === 'premium' && (
-          <View style={[styles.section, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]}>
-            <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{lang === 'zh' ? '尊享专属服务' : 'Premium Exclusive Services'}</Text>
-            <View style={[styles.premiumServices, {
-              padding: versionStyles.padding.base,
-              borderRadius: versionStyles.borderRadius,
-              backgroundColor: 'rgba(240, 244, 255, 0.95)',
-              borderWidth: 1,
-              borderColor: '#4a90e2',
-              shadowColor: '#4a90e2',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 8
-            }]}>
-              <View style={styles.premiumServiceItem}>
-                <Text style={styles.premiumServiceIcon}>💎</Text>
-                <View style={styles.premiumServiceContent}>
-                  <Text style={[styles.premiumServiceTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>{lang === 'zh' ? '专属投资顾问' : 'Exclusive Investment Advisor'}</Text>
-                  <Text style={[styles.premiumServiceDescription, { fontSize: versionStyles.fontSize.small }]}>{lang === 'zh' ? '一对一专业投资建议' : 'One-on-one professional investment advice'}</Text>
-                </View>
-                <Text style={styles.premiumServiceArrow}>→</Text>
-              </View>
-              <View style={styles.premiumServiceDivider} />
-              <View style={styles.premiumServiceItem}>
-                <Text style={styles.premiumServiceIcon}>🏆</Text>
-                <View style={styles.premiumServiceContent}>
-                  <Text style={[styles.premiumServiceTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>{lang === 'zh' ? '高端产品优先购' : 'Priority Access to Premium Products'}</Text>
-                  <Text style={[styles.premiumServiceDescription, { fontSize: versionStyles.fontSize.small }]}>{lang === 'zh' ? '尊享高端产品优先购买权' : 'Exclusive priority access to premium products'}</Text>
-                </View>
-                <Text style={styles.premiumServiceArrow}>→</Text>
-              </View>
-              <View style={styles.premiumServiceDivider} />
-              <View style={styles.premiumServiceItem}>
-                <Text style={styles.premiumServiceIcon}>📊</Text>
-                <View style={styles.premiumServiceContent}>
-                  <Text style={[styles.premiumServiceTitle, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.bold }]}>{lang === 'zh' ? '定制化投资报告' : 'Customized Investment Reports'}</Text>
-                  <Text style={[styles.premiumServiceDescription, { fontSize: versionStyles.fontSize.small }]}>{lang === 'zh' ? '个性化投资分析报告' : 'Personalized investment analysis reports'}</Text>
-                </View>
-                <Text style={styles.premiumServiceArrow}>→</Text>
+                    <View style={styles.productActions}>
+                      <Text style={styles.productReturnLabel}>{t.yearReturn}</Text>
+                      <TouchableOpacity 
+                        style={styles.subscribeButton}
+                        onPress={() => onNavigateToSubscriptionApplication && onNavigateToSubscriptionApplication(product)}
+                      >
+                        <Text style={styles.subscribeButtonText}>{lang === 'zh' ? '申购' : 'Subscribe'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Pressable>
+                ))}
               </View>
             </View>
-          </View>
-        )}
-        
-        {/* 底部留白 */}
-        <View style={{ height: 80 }} />
+          )}
+          
+          {/* 尊享版专属服务入口 */}
+          {appVersion === 'premium' && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>{lang === 'zh' ? '尊享专属服务' : 'Premium Exclusive Services'}</Text>
+                  <Text style={styles.sectionSubtitle}>{lang === 'zh' ? '一对一专属投资顾问服务' : 'One-on-one exclusive advisor service'}</Text>
+                </View>
+              </View>
+              <View style={styles.premiumServices}>
+                <View style={styles.premiumServiceItem}>
+                  <Text style={styles.premiumServiceIcon}>💎</Text>
+                  <View style={styles.premiumServiceContent}>
+                    <Text style={styles.premiumServiceTitle}>{lang === 'zh' ? '专属投资顾问' : 'Exclusive Investment Advisor'}</Text>
+                    <Text style={styles.premiumServiceDescription}>{lang === 'zh' ? '一对一专业投资建议' : 'One-on-one professional investment advice'}</Text>
+                  </View>
+                  <Text style={styles.premiumServiceArrow}>→</Text>
+                </View>
+                <View style={styles.premiumServiceDivider} />
+                <View style={styles.premiumServiceItem}>
+                  <Text style={styles.premiumServiceIcon}>🏆</Text>
+                  <View style={styles.premiumServiceContent}>
+                    <Text style={styles.premiumServiceTitle}>{lang === 'zh' ? '高端产品优先购' : 'Priority Access to Premium Products'}</Text>
+                    <Text style={styles.premiumServiceDescription}>{lang === 'zh' ? '尊享高端产品优先购买权' : 'Exclusive priority access to premium products'}</Text>
+                  </View>
+                  <Text style={styles.premiumServiceArrow}>→</Text>
+                </View>
+                <View style={styles.premiumServiceDivider} />
+                <View style={styles.premiumServiceItem}>
+                  <Text style={styles.premiumServiceIcon}>📊</Text>
+                  <View style={styles.premiumServiceContent}>
+                    <Text style={styles.premiumServiceTitle}>{lang === 'zh' ? '定制化投资报告' : 'Customized Investment Reports'}</Text>
+                    <Text style={styles.premiumServiceDescription}>{lang === 'zh' ? '个性化投资分析报告' : 'Personalized investment analysis reports'}</Text>
+                  </View>
+                  <Text style={styles.premiumServiceArrow}>→</Text>
+                </View>
+              </View>
+            </View>
+          )}
+          
+          {/* 底部留白 */}
+          <View style={{ height: 100 }} />
         </ScrollView>
       </View>
     </View>
   )
 }
-
-

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { message, Table, Spin } from 'antd';
 import { supabaseClient } from '../../main';
-import { PartnerDashboard } from '@aurora/types';
+import { PartnerDashboard } from '../../types';
 
 
 const PartnersList: React.FC = () => {
@@ -71,7 +71,7 @@ const PartnersList: React.FC = () => {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      sorter: (a: PartnerDashboard, b: PartnerDashboard) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      sorter: (a: PartnerDashboard, b: PartnerDashboard) => new Date(a.created_at || new Date()).getTime() - new Date(b.created_at || new Date()).getTime(),
       render: (createdAt: string) => new Date(createdAt).toLocaleString(),
     },
   ];

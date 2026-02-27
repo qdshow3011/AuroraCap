@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
 import { PieChart } from 'react-native-chart-kit'
-import { Dimensions } from 'react-native'
 
 // 我的资产类型定义
 interface MyAssets {
@@ -10,6 +12,8 @@ interface MyAssets {
   fundValue: number
   cashBalance: number
   pendingFunds: number
+  todayReturn: number
+  returnRate: number
 }
 
 // 交易记录类型定义
@@ -41,13 +45,46 @@ interface DepositWithdrawal {
   description?: string
 }
 
-export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo, onClose, onNavigateToCustomerService, onNavigateToWithdrawalApplication, onNavigateToFundTransactions }: { lang?: 'zh' | 'en'; demo?: boolean; userInfo?: any; onClose?: () => void; onNavigateToCustomerService?: () => void; onNavigateToWithdrawalApplication?: () => void; onNavigateToFundTransactions?: () => void }) {
+// 颜色常量
+const COLORS = {
+  primary: '#1A4EA2',
+  primaryDark: '#0D3A8A',
+  primaryLight: '#3B6CB8',
+  background: '#F5F7FA',
+  cardBg: '#FFFFFF',
+  fundGreen: '#4CAF50',
+  cashBlue: '#2196F3',
+  pendingOrange: '#FF9800',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#666666',
+  textMuted: '#999999',
+  positive: '#4CAF50',
+  negative: '#F44336',
+}
+
+export default function AssetStatusScreen({ 
+  lang = 'zh', 
+  demo = false, 
+  userInfo, 
+  onClose, 
+  onNavigateToCustomerService, 
+  onNavigateToWithdrawalApplication, 
+  onNavigateToFundTransactions 
+}: { 
+  lang?: 'zh' | 'en'
+  demo?: boolean
+  userInfo?: any
+  onClose?: () => void
+  onNavigateToCustomerService?: () => void
+  onNavigateToWithdrawalApplication?: () => void
+  onNavigateToFundTransactions?: () => void 
+}) {
   const [assets, setAssets] = useState<MyAssets | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   
-  // 滚动相关ref
+  const insets = useSafeAreaInsets()
   const scrollViewRef = useRef<ScrollView>(null)
 
   // 数据加载函数
@@ -56,7 +93,16 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
     setRefreshing(isRefresh)
     try {
       if (!userInfo || !userInfo.id) {
-        setAssets(null)
+        // 如果没有用户信息，显示默认数据
+        setAssets({
+          totalAssets: 0,
+          fundValue: 0,
+          cashBalance: 0,
+          pendingFunds: 0,
+          todayReturn: 0,
+          returnRate: 0
+        })
+        setLoading(false)
         return
       }
       
@@ -75,12 +121,16 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
         ? positionsData.reduce((sum, position) => sum + (position.current_value || 0), 0)
         : 0
       
+      // 计算今日收益（模拟数据，实际应从每日收益表获取）
+      const todayReturn = positionsData && positionsData.length > 0
+        ? positionsData.reduce((sum, position) => sum + (position.daily_return || 0), 0)
+        : 0
+      
       // 从cash_balances表获取现金余额数据
       let cashBalance = 0
       let availableBalance = 0
       let pendingAmount = 0
       
-      // 获取现金余额数据
       const { data: cashBalanceData, error: cashBalanceError } = await supabase
         .from('cash_balances')
         .select('*')
@@ -92,7 +142,6 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
         pendingAmount = cashBalanceData[0].pending_funds
       } else {
         console.log('未找到现金余额记录，使用默认值:', cashBalanceError)
-        // 使用默认值
         cashBalance = 100000.00
         availableBalance = 100000.00
         pendingAmount = 0.00
@@ -101,12 +150,16 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
       // 总资产 = 基金价值 + 现金余额
       const totalAssets = fundValue + cashBalance
       
-      // 设置资产数据
+      // 计算收益率
+      const returnRate = totalAssets > 0 ? (todayReturn / totalAssets) * 100 : 0
+      
       setAssets({
         totalAssets,
         fundValue,
         cashBalance,
-        pendingFunds: pendingAmount
+        pendingFunds: pendingAmount,
+        todayReturn,
+        returnRate
       })
       
     } catch (error) {
@@ -120,7 +173,7 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
 
   useEffect(() => {
     loadData()
-  }, [lang, supabase, userInfo])
+  }, [lang, userInfo?.id])
 
   // 语言翻译
   const t = lang === 'zh' ? {
@@ -132,16 +185,13 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
     investmentReview: '投资回顾',
     fundProducts: '基金产品',
     historicalTransactions: '我的交易记录',
-    // 资管功能按钮翻译
     depositService: '入金咨询',
     withdrawalApplication: '出金申请',
     assetStatus: '资产状况',
     transactionStatus: '资金往来',
-    // 资产明细
     fundValue: '基金价值',
     cashBalance: '现金余额',
     pendingFunds: '在途资金',
-    // 图表相关
     assetDistribution: '资产分布'
   } : {
     assetsCenter: 'Asset Management',
@@ -152,16 +202,13 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
     investmentReview: 'Investment Review',
     fundProducts: 'Fund Products',
     historicalTransactions: 'My Transactions',
-    // 资管功能按钮翻译
     depositService: 'Deposit Consultation',
     withdrawalApplication: 'Withdrawal Application',
     assetStatus: 'Asset Status',
     transactionStatus: 'Fund Transactions',
-    // 资产明细
     fundValue: 'Fund Value',
     cashBalance: 'Cash Balance',
     pendingFunds: 'Pending Funds',
-    // 图表相关
     assetDistribution: 'Asset Distribution'
   }
 
@@ -178,27 +225,26 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
       {
         name: t.fundValue,
         population: assets.fundValue || 0,
-        color: '#188038',
-        legendFontColor: '#7F7F7F',
+        color: COLORS.fundGreen,
+        legendFontColor: COLORS.textSecondary,
         legendFontSize: 12
       },
       {
         name: t.cashBalance,
         population: assets.cashBalance || 0,
-        color: '#1890ff',
-        legendFontColor: '#7F7F7F',
+        color: COLORS.cashBlue,
+        legendFontColor: COLORS.textSecondary,
         legendFontSize: 12
       },
       {
         name: t.pendingFunds,
         population: assets.pendingFunds || 0,
-        color: '#faad14',
-        legendFontColor: '#7F7F7F',
+        color: COLORS.pendingOrange,
+        legendFontColor: COLORS.textSecondary,
         legendFontSize: 12
       }
     ]
     
-    console.log('Pie chart data:', data)
     return data
   }
 
@@ -209,9 +255,15 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
     return `${percentage.toFixed(1)}%`
   }
 
+  // 格式化金额
+  const formatAmount = (amount: number) => {
+    return `¥${amount ? amount.toFixed(2) : '0.00'}`
+  }
+
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
+        <Ionicons name="refresh" size={40} color={COLORS.primary} />
         <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
       </View>
     )
@@ -220,6 +272,7 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
   if (error) {
     return (
       <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle" size={48} color={COLORS.negative} />
         <Text style={styles.errorText}>
           {lang === 'zh' ? `错误: ${error}` : `Error: ${error}`}
         </Text>
@@ -228,143 +281,231 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
   }
 
   return (
-    <View style={styles.container}>
-      {/* 顶部头衔 */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {onClose && (
-            <TouchableOpacity style={styles.backButton} onPress={onClose}>
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Text style={styles.title}>{t.myAssets}</Text>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('搜索')}>
-            <Text style={styles.icon}>🔍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('客服')}>
-            <Text style={styles.icon}>🎧</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 资管功能按钮区域 */}
-      <View style={styles.assetManagementButtons}>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('入金咨询 - 跳转客服模块');
-            onNavigateToCustomerService?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>💰</Text>
-            <Text style={styles.functionButtonText}>{t.depositService}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('出金申请 - 跳转出金申请页面');
-            onNavigateToWithdrawalApplication?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>🏦</Text>
-            <Text style={styles.functionButtonText}>{t.withdrawalApplication}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.functionButton, styles.activeButton]} onPress={() => {
-            console.log('资产状况');
-          }}>
-            <Text style={styles.functionButtonIcon}>📊</Text>
-            <Text style={[styles.functionButtonText, styles.activeButtonText]}>{t.assetStatus}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.functionButton} onPress={() => {
-            console.log('资金往来 - 跳转资金往来页面');
-            onNavigateToFundTransactions?.();
-          }}>
-            <Text style={styles.functionButtonIcon}>💱</Text>
-            <Text style={styles.functionButtonText}>{t.transactionStatus}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 内容滚动区域 */}
-      <ScrollView 
-        ref={scrollViewRef} 
-        style={styles.contentScrollView} 
-        showsVerticalScrollIndicator={false}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* 渐变头部背景 */}
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerGradient}
       >
-        {/* 资产状况展示 */}
+        {/* 头部导航 */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {onClose && (
+              <TouchableOpacity style={styles.backButton} onPress={onClose}>
+                <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.title}>{t.myAssets}</Text>
+          </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => console.log('搜索')}>
+              <View style={styles.iconButtonBg}>
+                <Ionicons name="search" size={20} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => console.log('客服')}>
+              <View style={styles.iconButtonBg}>
+                <Ionicons name="headset" size={20} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 总资产展示区域 */}
         {assets && (
-          <View style={styles.content}>
-            {/* 总资产 */}
-            <View style={styles.totalAssetsContainer}>
-              <Text style={styles.totalAssetsLabel}>{t.totalAssets}</Text>
-              <Text style={styles.totalAssetsValue}>¥{assets.totalAssets ? assets.totalAssets.toFixed(2) : '0.00'}</Text>
-            </View>
-
-            {/* 饼状图 */}
-            <View style={styles.chartContainer}>
-              <Text style={styles.chartTitle}>{t.assetDistribution}</Text>
-              <PieChart
-                data={getPieChartData()}
-                width={Dimensions.get('window').width - 40}
-                height={220}
-                chartConfig={{
-                  backgroundColor: '#ffffff',
-                  backgroundGradientFrom: '#ffffff',
-                  backgroundGradientTo: '#ffffff',
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  style: {
-                    borderRadius: 16
-                  },
-                  propsForDots: {
-                    r: '6',
-                    strokeWidth: '2',
-                    stroke: '#ffffff'
-                  }
-                }}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="15"
-              />
-            </View>
-
-            {/* 资产明细 */}
-            <View style={styles.assetDetailsContainer}>
-              <View style={styles.assetDetailItem}>
-                <View style={styles.assetDetailLeft}>
-                  <View style={[styles.assetDetailIcon, { backgroundColor: '#188038' }]} />
-                  <Text style={styles.assetDetailLabel}>{t.fundValue}</Text>
-                </View>
-                <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.fundValue ? assets.fundValue.toFixed(2) : '0.00'}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.fundValue || 0)}</Text>
-                </View>
+          <View style={styles.totalAssetsContainer}>
+            <Text style={styles.totalAssetsLabel}>{t.totalAssets}</Text>
+            <Text style={styles.totalAssetsValue}>{formatAmount(assets.totalAssets)}</Text>
+            <View style={styles.returnContainer}>
+              <View style={styles.returnItem}>
+                <Text style={styles.returnLabel}>{t.todayReturn}</Text>
+                <Text style={[
+                  styles.returnValue, 
+                  assets.todayReturn >= 0 ? styles.positiveText : styles.negativeText
+                ]}>
+                  {assets.todayReturn >= 0 ? '+' : ''}{formatAmount(assets.todayReturn)}
+                </Text>
               </View>
-
-              <View style={styles.assetDetailItem}>
-                <View style={styles.assetDetailLeft}>
-                  <View style={[styles.assetDetailIcon, { backgroundColor: '#1890ff' }]} />
-                  <Text style={styles.assetDetailLabel}>{t.cashBalance}</Text>
-                </View>
-                <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.cashBalance ? assets.cashBalance.toFixed(2) : '0.00'}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.cashBalance || 0)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.assetDetailItem}>
-                <View style={styles.assetDetailLeft}>
-                  <View style={[styles.assetDetailIcon, { backgroundColor: '#faad14' }]} />
-                  <Text style={styles.assetDetailLabel}>{t.pendingFunds}</Text>
-                </View>
-                <View style={styles.assetDetailRight}>
-                  <Text style={styles.assetDetailValue}>¥{assets.pendingFunds ? assets.pendingFunds.toFixed(2) : '0.00'}</Text>
-                  <Text style={styles.assetDetailPercentage}>{calculatePercentage(assets.pendingFunds || 0)}</Text>
-                </View>
+              <View style={styles.returnDivider} />
+              <View style={styles.returnItem}>
+                <Text style={styles.returnLabel}>{t.returnRate}</Text>
+                <Text style={[
+                  styles.returnValue,
+                  assets.returnRate >= 0 ? styles.positiveText : styles.negativeText
+                ]}>
+                  {assets.returnRate >= 0 ? '+' : ''}{assets.returnRate.toFixed(2)}%
+                </Text>
               </View>
             </View>
           </View>
         )}
+      </LinearGradient>
+
+      {/* 内容滚动区域 */}
+      <ScrollView 
+        ref={scrollViewRef} 
+        style={styles.contentScrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 资管功能按钮区域 */}
+        <View style={styles.assetManagementCard}>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={styles.functionButton} 
+              onPress={() => onNavigateToCustomerService?.()}
+              activeOpacity={0.7}
+            >
+              <View style={styles.functionIconContainer}>
+                <Ionicons name="cash-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.functionButtonText}>{t.depositService}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.functionButton} 
+              onPress={() => onNavigateToWithdrawalApplication?.()}
+              activeOpacity={0.7}
+            >
+              <View style={styles.functionIconContainer}>
+                <Ionicons name="card-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.functionButtonText}>{t.withdrawalApplication}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.functionButton, styles.activeButton]} 
+              onPress={() => {}}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.functionIconContainer, styles.activeIconContainer]}>
+                <Ionicons name="pie-chart" size={24} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.functionButtonText, styles.activeButtonText]}>{t.assetStatus}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.functionButton} 
+              onPress={() => onNavigateToFundTransactions?.()}
+              activeOpacity={0.7}
+            >
+              <View style={styles.functionIconContainer}>
+                <Ionicons name="swap-horizontal-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.functionButtonText}>{t.transactionStatus}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {assets && (
+          <>
+            {/* 资产分布卡片 */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLine} />
+                <Text style={styles.cardTitle}>{t.assetDistribution}</Text>
+              </View>
+              
+              <View style={styles.chartContainer}>
+                <PieChart
+                  data={getPieChartData()}
+                  width={Dimensions.get('window').width - 72}
+                  height={200}
+                  chartConfig={{
+                    backgroundColor: COLORS.cardBg,
+                    backgroundGradientFrom: COLORS.cardBg,
+                    backgroundGradientTo: COLORS.cardBg,
+                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    style: {
+                      borderRadius: 16
+                    }
+                  }}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  hasLegend={true}
+                  legendStyle={{
+                    paddingTop: 10
+                  }}
+                />
+              </View>
+            </View>
+
+            {/* 资产明细卡片 */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLine} />
+                <Text style={styles.cardTitle}>{t.assetStatus}</Text>
+              </View>
+              
+              <View style={styles.assetDetailsContainer}>
+                {/* 基金价值 */}
+                <View style={styles.assetDetailItem}>
+                  <View style={styles.assetDetailLeft}>
+                    <View style={[styles.assetDetailIcon, { backgroundColor: COLORS.fundGreen }]}>
+                      <Ionicons name="trending-up" size={16} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.assetDetailLabel}>{t.fundValue}</Text>
+                  </View>
+                  <View style={styles.assetDetailRight}>
+                    <Text style={styles.assetDetailValue}>{formatAmount(assets.fundValue || 0)}</Text>
+                    <View style={styles.percentageBadge}>
+                      <Text style={[styles.assetDetailPercentage, { color: COLORS.fundGreen }]}>
+                        {calculatePercentage(assets.fundValue || 0)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* 现金余额 */}
+                <View style={styles.assetDetailItem}>
+                  <View style={styles.assetDetailLeft}>
+                    <View style={[styles.assetDetailIcon, { backgroundColor: COLORS.cashBlue }]}>
+                      <Ionicons name="wallet" size={16} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.assetDetailLabel}>{t.cashBalance}</Text>
+                  </View>
+                  <View style={styles.assetDetailRight}>
+                    <Text style={styles.assetDetailValue}>{formatAmount(assets.cashBalance || 0)}</Text>
+                    <View style={styles.percentageBadge}>
+                      <Text style={[styles.assetDetailPercentage, { color: COLORS.cashBlue }]}>
+                        {calculatePercentage(assets.cashBalance || 0)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* 在途资金 */}
+                <View style={styles.assetDetailItem}>
+                  <View style={styles.assetDetailLeft}>
+                    <View style={[styles.assetDetailIcon, { backgroundColor: COLORS.pendingOrange }]}>
+                      <Ionicons name="time" size={16} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.assetDetailLabel}>{t.pendingFunds}</Text>
+                  </View>
+                  <View style={styles.assetDetailRight}>
+                    <Text style={styles.assetDetailValue}>{formatAmount(assets.pendingFunds || 0)}</Text>
+                    <View style={styles.percentageBadge}>
+                      <Text style={[styles.assetDetailPercentage, { color: COLORS.pendingOrange }]}>
+                        {calculatePercentage(assets.pendingFunds || 0)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* 底部留白 */}
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </View>
   )
@@ -373,53 +514,59 @@ export default function AssetStatusScreen({ lang = 'zh', demo = false, userInfo,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
-    padding: 20,
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: COLORS.background,
   },
   loadingText: {
-    color: '#333',
+    color: COLORS.textSecondary,
     fontSize: 16,
+    marginTop: 12,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: COLORS.background,
     padding: 20,
   },
   errorText: {
-    color: '#d93025',
+    color: COLORS.negative,
     fontSize: 16,
     textAlign: 'center',
+    marginTop: 12,
   },
+  
+  // 头部渐变背景
+  headerGradient: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  
+  // 头部导航
   header: {
-    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 12,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
-    fontWeight: '600',
+    padding: 4,
+    marginRight: 8,
   },
   title: {
-    color: '#333',
-    fontSize: 24,
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '700',
   },
   headerIcons: {
@@ -427,27 +574,97 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    padding: 8,
     marginLeft: 12,
   },
-  icon: {
-    fontSize: 20,
-    color: '#333',
+  iconButtonBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  // 资管功能按钮样式
-  assetManagementButtons: {
-    backgroundColor: '#fff',
-    padding: 16,
+  
+  // 总资产展示
+  totalAssetsContainer: {
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  totalAssetsLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  totalAssetsValue: {
+    color: '#FFFFFF',
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  returnContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 12,
-    marginBottom: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  returnItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  returnDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 16,
+  },
+  returnLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  returnValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  positiveText: {
+    color: '#90EE90',
+  },
+  negativeText: {
+    color: '#FFB6B6',
+  },
+  
+  // 内容滚动区域
+  contentScrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  
+  // 资管功能按钮卡片
+  assetManagementCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -457,109 +674,136 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   activeButton: {
-    backgroundColor: '#e6f4ea',
+    backgroundColor: 'rgba(26, 78, 162, 0.08)',
   },
-  functionButtonIcon: {
-    fontSize: 28,
+  functionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(26, 78, 162, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  activeIconContainer: {
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   functionButtonText: {
     fontSize: 12,
-    color: '#333',
+    color: COLORS.textSecondary,
     textAlign: 'center',
+    fontWeight: '500',
   },
   activeButtonText: {
-    color: '#188038',
-    fontWeight: '600',
+    color: COLORS.primary,
+    fontWeight: '700',
   },
-  // 内容区域
-  content: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  
+  // 通用卡片样式
+  card: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
     padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  // 总资产
-  totalAssetsContainer: {
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
-  },
-  totalAssetsLabel: {
-    color: '#666',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  totalAssetsValue: {
-    color: '#333',
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  // 图表
-  chartContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-    minHeight: 250,
-  },
-  chartTitle: {
-    color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
     marginBottom: 16,
   },
-  // 资产明细
+  cardHeaderLine: {
+    width: 4,
+    height: 20,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  cardTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  
+  // 图表样式
+  chartContainer: {
+    alignItems: 'center',
+    minHeight: 220,
+  },
+  
+  // 资产明细样式
   assetDetailsContainer: {
-    marginTop: 20,
+    marginTop: 8,
   },
   assetDetailItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingVertical: 14,
   },
   assetDetailLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   assetDetailIcon: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   assetDetailLabel: {
-    color: '#666',
-    fontSize: 16,
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   assetDetailRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   assetDetailValue: {
-    color: '#333',
+    color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '500',
-    marginRight: 16,
+    fontWeight: '700',
+    marginRight: 12,
+  },
+  percentageBadge: {
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    minWidth: 50,
+    alignItems: 'center',
   },
   assetDetailPercentage: {
-    color: '#999',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  // 内容滚动区域样式
-  contentScrollView: {
-    flex: 1,
-    backgroundColor: '#f0f2f5',
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginLeft: 48,
+  },
+  
+  // 底部留白
+  bottomPadding: {
+    height: 30,
   },
 })

@@ -51,8 +51,8 @@ const ChatDetail: React.FC = () => {
   const navigate = useNavigate();
 
   // 状态管理
-  const [customerId, setCustomerId] = useState<string>(searchParams.get('customerId') || '');
-  const [waiterId, setWaiterId] = useState<string>(searchParams.get('waiterId') || '');
+  const [customerId] = useState<string>(searchParams.get('customerId') || '');
+  const [waiterId] = useState<string>(searchParams.get('waiterId') || '');
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [waiter, setWaiter] = useState<Waiter | null>(null);
   const [allWaiters, setAllWaiters] = useState<Waiter[]>([]);
@@ -199,10 +199,10 @@ const ChatDetail: React.FC = () => {
         status: session.status,
         last_message_at: session.last_message_at,
         created_at: session.created_at,
-        user_name: session.users?.name,
-        agent_name: session.agents?.name,
-        customer: session.users as Customer,
-        agent: session.agents as Waiter
+        user_name: session.users && Array.isArray(session.users) ? session.users[0]?.name : undefined,
+        agent_name: session.agents && Array.isArray(session.agents) ? session.agents[0]?.name : undefined,
+        customer: session.users && Array.isArray(session.users) && session.users.length > 0 ? session.users[0] as Customer : undefined,
+        agent: session.agents && Array.isArray(session.agents) && session.agents.length > 0 ? session.agents[0] as Waiter : undefined
       }));
 
       console.log('格式化后的聊天会话:', formattedSessions);
@@ -388,7 +388,7 @@ const ChatDetail: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: string, record: ChatMessage) => (
+      render: (_text: string, record: ChatMessage) => (
         <Space size="middle">
           <Button 
             type="default" 

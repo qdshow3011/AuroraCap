@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, Pressable, ScrollView, FlatList } from 'react-native'
+import { View, Text, StyleSheet, Pressable, FlatList, StatusBar, TouchableOpacity } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import MessageDetailScreen from './MessageDetailScreen'
 
@@ -17,12 +20,32 @@ interface Message {
 type MessageCategory = 'all' | 'system' | 'investment';
 
 export default function MessageCenterScreen({ lang, userInfo, onClose, initialCategory }: { lang?: 'zh' | 'en'; userInfo: any; onClose: () => void; initialCategory?: 'all' | 'system' | 'investment' }) {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<MessageCategory>(initialCategory || 'all');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
-  // 获取消息列表
+  const t = lang === 'zh' ? {
+    title: '消息中心',
+    all: '全部',
+    system: '系统',
+    investment: '投资',
+    markAllRead: '全部已读',
+    noMessages: '暂无消息',
+    loading: '加载中...',
+    unreadCount: '条未读',
+  } : {
+    title: 'Message Center',
+    all: 'All',
+    system: 'System',
+    investment: 'Investment',
+    markAllRead: 'Mark All Read',
+    noMessages: 'No messages',
+    loading: 'Loading...',
+    unreadCount: 'unread',
+  };
+
   const fetchMessages = async () => {
     try {
       setLoading(true);
@@ -30,7 +53,6 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
         return;
       }
 
-      // 获取所有消息
       const { data: messagesData, error: messagesError } = await supabase
         .from('system_messages')
         .select('*')
@@ -42,7 +64,6 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
         return;
       }
 
-      // 获取消息状态
       const { data: statusData, error: statusError } = await supabase
         .from('system_messages_status')
         .select('message_id, is_read')
@@ -53,7 +74,6 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
         return;
       }
 
-      // 合并消息和状态
       const statusMap = new Map(statusData?.map(item => [item.message_id, item.is_read]) || []);
       const mergedMessages = (messagesData || []).map(msg => ({
         ...msg,
@@ -68,14 +88,10 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
     }
   };
 
-  // 标记消息为已读
   const markAsRead = async (messageId: string) => {
     try {
-      if (!userInfo || !userInfo.id || !supabase) {
-        return;
-      }
+      if (!userInfo || !userInfo.id || !supabase) return;
 
-      // 使用 upsert 操作，无论记录是否存在都能正确更新
       const { error } = await supabase
         .from('system_messages_status')
         .upsert(
@@ -85,9 +101,7 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
             is_read: true,
             read_at: new Date().toISOString()
           },
-          {
-            onConflict: 'message_id,user_id' // 指定唯一约束
-          }
+          { onConflict: 'message_id,user_id' }
         );
 
       if (error) {
@@ -95,7 +109,6 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
         return;
       }
 
-      // 更新本地状态
       setMessages(prev => prev.map(msg => 
         msg.id === messageId ? { ...msg, is_read: true } : msg
       ));
@@ -104,20 +117,15 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
     }
   };
 
-  // 标记所有消息为已读
   const markAllAsRead = async () => {
     try {
-      if (!userInfo || !userInfo.id || !supabase) {
-        return;
-      }
+      if (!userInfo || !userInfo.id || !supabase) return;
 
-      // 获取当前分类的未读消息
       const filteredMessages = messages.filter(msg => {
         if (activeCategory === 'all') return !msg.is_read;
         return msg.category === activeCategory && !msg.is_read;
       });
 
-      // 批量更新消息状态
       for (const msg of filteredMessages) {
         await markAsRead(msg.id);
       }
@@ -126,108 +134,114 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
     }
   };
 
-  // 过滤消息
   const filteredMessages = messages.filter(msg => {
     if (activeCategory === 'all') return true;
     return msg.category === activeCategory;
   });
 
-  // 获取分类名称
-  const getCategoryName = (category: MessageCategory) => {
-    if (lang === 'en') {
-      switch (category) {
-        case 'all': return 'All';
-        case 'system': return 'System';
-        case 'investment': return 'Investment';
-        default: return 'All';
-      }
-    }
+  const unreadCount = messages.filter(msg => !msg.is_read).length;
+
+  const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'all': return '全部信息';
-      case 'system': return '系统通知';
-      case 'investment': return '投资提示';
-      default: return '全部信息';
+      case 'system': return 'notifications';
+      case 'investment': return 'trending-up';
+      default: return 'mail';
     }
   };
 
-  // 获取消息标题
-  const getMessageTitle = (category: string) => {
-    if (lang === 'en') {
-      switch (category) {
-        case 'system': return 'System Notification';
-        case 'investment': return 'Investment Tip';
-        default: return 'Notification';
-      }
-    }
+  const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'system': return '系统通知';
-      case 'investment': return '投资提示';
-      default: return '通知';
+      case 'system': return '#FF9800';
+      case 'investment': return '#4CAF50';
+      default: return '#1A4EA2';
     }
   };
 
-  // 格式化时间
+  const getCategoryBgColor = (category: string) => {
+    switch (category) {
+      case 'system': return '#FFF3E0';
+      case 'investment': return '#E8F5E9';
+      default: return '#E3F2FD';
+    }
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (days === 0) {
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    } else if (days === 1) {
+      return lang === 'zh' ? '昨天' : 'Yesterday';
+    } else if (days < 7) {
+      return date.toLocaleDateString('zh-CN', { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+    }
   };
 
-  // 处理消息点击
   const handleMessagePress = async (message: Message) => {
-    // 先标记为已读
     if (!message.is_read) {
       await markAsRead(message.id);
     }
-    // 然后跳转到详情页
     setSelectedMessage(message);
   };
 
-  // 渲染消息项
   const renderMessageItem = ({ item }: { item: Message }) => (
-    <Pressable 
+    <TouchableOpacity 
       style={[styles.messageItem, !item.is_read && styles.unreadMessage]} 
       onPress={() => handleMessagePress(item)}
+      activeOpacity={0.8}
     >
-      <View style={styles.messageLeft}>
-        <View style={styles.messageIconContainer}>
-          <Text style={styles.messageIcon}>
-            {item.category === 'system' ? '📢' : '💡'}
+      <View style={[styles.iconContainer, { backgroundColor: getCategoryBgColor(item.category) }]}>
+        <Ionicons name={getCategoryIcon(item.category) as any} size={24} color={getCategoryColor(item.category)} />
+        {!item.is_read && <View style={styles.unreadDot} />}
+      </View>
+      <View style={styles.messageContent}>
+        <View style={styles.messageHeader}>
+          <Text style={styles.messageTitle}>
+            {lang === 'zh' 
+              ? (item.category === 'system' ? '系统通知' : '投资提示')
+              : (item.category === 'system' ? 'System' : 'Investment')
+            }
           </Text>
-          {!item.is_read && <View style={styles.unreadDot}></View>}
-        </View>
-        <View style={styles.messageContent}>
-          <Text style={styles.messageTitle}>{getMessageTitle(item.category)}</Text>
-          <Text style={styles.messageText} numberOfLines={2} ellipsizeMode="tail">{item.content}</Text>
           <Text style={styles.messageTime}>{formatTime(item.created_at)}</Text>
         </View>
+        <Text style={styles.messageText} numberOfLines={2} ellipsizeMode="tail">{item.content}</Text>
       </View>
-      <Text style={styles.messageArrow}>›</Text>
-    </Pressable>
+      <Ionicons name="chevron-forward" size={20} color="#CCC" />
+    </TouchableOpacity>
   );
 
-  // 渲染分类标签
-  const renderCategoryTab = (category: MessageCategory) => (
-    <Pressable 
-      style={[styles.categoryTab, activeCategory === category && styles.activeCategoryTab]} 
-      onPress={() => setActiveCategory(category)}
-    >
-      <Text style={[styles.categoryTabText, activeCategory === category && styles.activeCategoryTabText]}>
-        {getCategoryName(category)}
-      </Text>
-    </Pressable>
-  );
+  const renderCategoryTab = (category: MessageCategory, label: string, icon: string) => {
+    const isActive = activeCategory === category;
+    const count = category === 'all' 
+      ? messages.filter(m => !m.is_read).length
+      : messages.filter(m => m.category === category && !m.is_read).length;
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.categoryTab, isActive && styles.activeCategoryTab]} 
+        onPress={() => setActiveCategory(category)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name={icon as any} size={18} color={isActive ? '#1A4EA2' : '#999'} style={styles.categoryIcon} />
+        <Text style={[styles.categoryTabText, isActive && styles.activeCategoryTabText]}>{label}</Text>
+        {count > 0 && (
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{count > 99 ? '99+' : count}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   useEffect(() => {
     fetchMessages();
   }, [userInfo]);
 
-  // 如果有选中的消息，显示详情页
   if (selectedMessage) {
     return (
       <MessageDetailScreen
@@ -240,37 +254,57 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
 
   return (
     <View style={styles.container}>
-      {/* 头部 */}
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>‹</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{lang === 'en' ? 'Message Center' : '消息中心'}</Text>
-        <Pressable style={styles.markAllButton} onPress={markAllAsRead}>
-          <Text style={styles.markAllButtonText}>{lang === 'en' ? 'Mark All Read' : '全部已读'}</Text>
-        </Pressable>
+      <StatusBar barStyle="light-content" backgroundColor="#1A4EA2" />
+      
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        style={[styles.header, { paddingTop: insets.top > 0 ? insets.top : 16 }]}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={onClose}>
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t.title}</Text>
+        <TouchableOpacity style={styles.markAllButton} onPress={markAllAsRead}>
+          <Text style={styles.markAllButtonText}>{t.markAllRead}</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+
+      <View style={styles.statsContainer}>
+        <LinearGradient
+          colors={['#1A4EA2', '#0D3A8A']}
+          style={styles.statsCard}
+        >
+          <Ionicons name="mail-unread" size={32} color="#FFFFFF" />
+          <Text style={styles.statsNumber}>{unreadCount}</Text>
+          <Text style={styles.statsLabel}>{lang === 'zh' ? '未读消息' : 'Unread'}</Text>
+        </LinearGradient>
+        <LinearGradient
+          colors={['#4CAF50', '#388E3C']}
+          style={styles.statsCard}
+        >
+          <Ionicons name="mail" size={32} color="#FFFFFF" />
+          <Text style={styles.statsNumber}>{messages.length}</Text>
+          <Text style={styles.statsLabel}>{lang === 'zh' ? '全部消息' : 'Total'}</Text>
+        </LinearGradient>
       </View>
 
-      {/* 分类标签 */}
       <View style={styles.categoryTabs}>
-        {renderCategoryTab('all')}
-        {renderCategoryTab('system')}
-        {renderCategoryTab('investment')}
+        {renderCategoryTab('all', t.all, 'mail')}
+        {renderCategoryTab('system', t.system, 'notifications')}
+        {renderCategoryTab('investment', t.investment, 'trending-up')}
       </View>
 
-      {/* 消息列表 */}
       <FlatList
         data={filteredMessages}
         renderItem={renderMessageItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Ionicons name="mail-outline" size={64} color="#CCC" />
             <Text style={styles.emptyText}>
-              {loading ? 
-                (lang === 'en' ? 'Loading...' : '加载中...') : 
-                (lang === 'en' ? 'No messages found' : '暂无消息')
-              }
+              {loading ? t.loading : t.noMessages}
             </Text>
           </View>
         }
@@ -284,73 +318,113 @@ export default function MessageCenterScreen({ lang, userInfo, onClose, initialCa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingBottom: 16,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: '#333',
-    fontSize: 24,
-    fontWeight: '600',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   headerTitle: {
-    color: '#333',
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   markAllButton: {
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   markAllButtonText: {
-    color: '#0a84ff',
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '500',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  statsCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  statsNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  statsLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
   categoryTabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#F0F0F0',
   },
   categoryTab: {
     flex: 1,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: 20,
+    backgroundColor: '#F5F7FA',
     marginHorizontal: 4,
   },
   activeCategoryTab: {
-    backgroundColor: '#e6f4ff',
+    backgroundColor: '#E3F2FD',
+  },
+  categoryIcon: {
+    marginRight: 6,
   },
   categoryTabText: {
-    color: '#666',
+    color: '#999',
     fontSize: 14,
     fontWeight: '500',
   },
   activeCategoryTabText: {
-    color: '#0a84ff',
+    color: '#1A4EA2',
+    fontWeight: '600',
+  },
+  categoryBadge: {
+    backgroundColor: '#F44336',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    paddingHorizontal: 4,
+  },
+  categoryBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '600',
   },
   messageList: {
@@ -359,78 +433,74 @@ const styles = StyleSheet.create({
   },
   messageItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   unreadMessage: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#F5F9FF',
     borderLeftWidth: 3,
-    borderLeftColor: '#0a84ff',
+    borderLeftColor: '#1A4EA2',
   },
-  messageLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  messageIconContainer: {
-    position: 'relative',
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
-    marginTop: 2,
-  },
-  messageIcon: {
-    fontSize: 20,
+    position: 'relative',
   },
   unreadDot: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F44336',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   messageContent: {
     flex: 1,
   },
+  messageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   messageTitle: {
     color: '#333',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  messageText: {
-    color: '#666',
-    fontSize: 14,
-    marginBottom: 4,
-    lineHeight: 20,
   },
   messageTime: {
     color: '#999',
     fontSize: 12,
   },
-  messageArrow: {
-    color: '#999',
-    fontSize: 20,
-    marginLeft: 8,
+  messageText: {
+    color: '#666',
+    fontSize: 14,
+    lineHeight: 20,
   },
   emptyContainer: {
-    paddingVertical: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 60,
   },
   emptyText: {
     color: '#999',
-    fontSize: 16,
+    fontSize: 14,
+    marginTop: 16,
   },
-})
+});

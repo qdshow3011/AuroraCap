@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Select, Input, Spin, message, Tag, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { supabaseClient } from '../../main';
-import { InviteCode, User } from '@aurora/types';
+import { InviteCode, User } from '../../types';
 import { Link } from 'react-router-dom';
 
 const { Option } = Select;
@@ -671,8 +671,8 @@ const InvitationCodeManagement: React.FC = () => {
       title: '是否过期',
       key: 'is_expired',
       render: (_, record) => (
-        <Tag color={isExpired(record.expiry_date) ? 'red' : 'green'}>
-          {isExpired(record.expiry_date) ? '已过期' : '未过期'}
+        <Tag color={isExpired(record.expiry_date || null) ? 'red' : 'green'}>
+          {isExpired(record.expiry_date || null) ? '已过期' : '未过期'}
         </Tag>
       ),
     },
@@ -690,14 +690,14 @@ const InvitationCodeManagement: React.FC = () => {
               setSelectedCode(record);
               setIsAssignModalVisible(true);
             }}
-            disabled={record.status === 'used' || isExpired(record.expiry_date)}
+            disabled={record.status === 'used' || isExpired(record.expiry_date || null)}
           >
             分配
           </Button>
           <Button 
             type="link" 
             onClick={() => handlePushCode(record)}
-            disabled={record.status === 'used' || isExpired(record.expiry_date)}
+            disabled={record.status === 'used' || isExpired(record.expiry_date || null)}
           >
             推送
           </Button>
@@ -713,7 +713,7 @@ const InvitationCodeManagement: React.FC = () => {
               setSelectedCode(record);
               setIsEditModalVisible(true);
             }}
-            disabled={record.status === 'used' || isExpired(record.expiry_date)}
+            disabled={record.status === 'used' || isExpired(record.expiry_date || null)}
           >
             编辑
           </Button>

@@ -113,7 +113,7 @@
   .ant-layout-content {
     padding: 16px;
     margin: 16px;
-    max-height: calc(100vh - 96px); // 100vh - Header高度(64px) - Content上下margin(16px*2)
+    max-height: calc(100vh - 96px); /* 100vh - Header高度(64px) - Content上下margin(16px*2) */
   }
   
   .ant-layout-sider {

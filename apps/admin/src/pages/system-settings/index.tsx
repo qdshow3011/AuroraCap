@@ -305,7 +305,7 @@ const SystemSettings: React.FC = () => {
       {
         title: '操作',
         key: 'action',
-        render: (_, record) => (
+        render: (_: any, record: any) => (
           <div>
             <Button type="link" icon={<EditOutlined />} onClick={() => handleEditRole(record)}>
               编辑
@@ -476,7 +476,7 @@ const SystemSettings: React.FC = () => {
                 </Space.Compact>
               ) : (
                 <Input 
-                  placeholder="请输入角色代码（如：admin, partner, client, waiter）" 
+                  placeholder="请输入角色代码（如：admin, partner, client, waiter, fund_company）" 
                 />
               )}
             </Form.Item>

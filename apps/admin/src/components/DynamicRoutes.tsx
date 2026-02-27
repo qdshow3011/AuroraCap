@@ -39,6 +39,7 @@ const DynamicRoutes: React.FC<DynamicRoutesProps> = ({ items, defaultPath = '/da
   // 定义额外路由的懒加载组件
   const UsedInvitationCodes = React.lazy(() => import('../pages/user-center/used-invitation-codes'));
   const ChatDetail = React.lazy(() => import('../pages/user-center/chat-detail'));
+  const SecurityDetail = React.lazy(() => import('../pages/asset-management/security-detail'));
 
   return (
     <Routes>
@@ -61,6 +62,15 @@ const DynamicRoutes: React.FC<DynamicRoutesProps> = ({ items, defaultPath = '/da
         element={
           <Suspense fallback={<div>加载中...</div>}>
             <ChatDetail />
+          </Suspense>
+        }
+      />
+      {/* 证券详情路由 */}
+      <Route
+        path="/asset-management/security-detail/:symbol"
+        element={
+          <Suspense fallback={<div>加载中...</div>}>
+            <SecurityDetail />
           </Suspense>
         }
       />

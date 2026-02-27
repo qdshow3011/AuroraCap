@@ -7,23 +7,41 @@
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
     "entryPoint": "./App.tsx",
+    "version": "1.0.0",
     "ios": {
+      "bundleIdentifier": "com.aurora.mobile",
+      "buildNumber": "1.0.0",
       "infoPlist": {
         "UIStatusBarHidden": false,
         "UIViewControllerBasedStatusBarAppearance": true
       }
     },
     "android": {
+      "package": "com.aurora.mobile",
+      "versionCode": 1,
       "statusBar": {
         "translucent": true,
         "backgroundColor": "transparent",
         "barStyle": "light-content"
-      }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A4EA2"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "bundler": "metro",
-      "output": "single",
-      "favicon": "./assets/logo.svg"
+      "output": "single"
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A4EA2"
     }
   }
 }

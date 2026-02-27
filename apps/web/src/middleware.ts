@@ -62,6 +62,19 @@ export async function middleware(request: NextRequest) {
     // Insights detail pages (full article reading) - require login
     '/insights/[insightId]'
   ];
+
+  // Define fund company specific routes
+  const fundCompanyRoutes = [
+    '/user/fund-company',
+    '/user/fund-company/products',
+    '/user/fund-company/chat',
+    '/user/fund-company/official-account'
+  ];
+
+  // Check if current path is a fund company route
+  const isFundCompanyRoute = fundCompanyRoutes.some(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  );
   
   const isProtectedRoute = protectedRoutes.some(route => {
     // Handle wildcard routes
@@ -95,6 +108,15 @@ export async function middleware(request: NextRequest) {
 
   if (isAuthPage && isAuthenticated) {
     return NextResponse.redirect(new URL('/user', request.url));
+  }
+
+  // For fund company routes, we'll let the pages handle their own role checking
+  // This allows the pages to check user role from localStorage/cookies
+  // and redirect if the user doesn't have fund_company role
+  if (isFundCompanyRoute && !isAuthenticated) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return response;

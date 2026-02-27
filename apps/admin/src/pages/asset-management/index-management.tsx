@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card, Table, Spin, message, Modal, Form, Input, InputNumber, Popconfirm, Select, Tag, Switch } from 'antd';
+import { Button, Card, Table, Spin, message, Modal, Form, Input, InputNumber, Popconfirm, Select, Tag, Switch, Radio } from 'antd';
 import { EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons';
 import { YahooIndex } from '@aurora/types';
 import { supabaseClient } from '../../main';
-import { yahooFinanceService } from '../../services/yahoo-finance.service';
+import { finnhubService } from '../../services/finnhub.service';
+import { alphaVantageService } from '../../services/alpha-vantage.service';
+import { useNavigate } from 'react-router-dom';
 
 const IndexManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<YahooIndex | null>(null);
   const [indices, setIndices] = useState<YahooIndex[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedApi, setSelectedApi] = useState<'alpha-vantage' | 'finnhub'>('alpha-vantage');
   const [form] = Form.useForm();
 
   const fetchIndices = async () => {
@@ -23,15 +27,15 @@ const IndexManagement: React.FC = () => {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching indices:', error);
-        message.error('获取指数数据失败');
+        console.error('Error fetching securities:', error);
+        message.error('获取证券数据失败');
         return;
       }
 
       setIndices(data || []);
     } catch (err) {
-      console.error('Exception fetching indices:', err);
-      message.error('获取指数数据时发生异常');
+      console.error('Exception fetching securities:', err);
+      message.error('获取证券数据时发生异常');
     } finally {
       setIsLoading(false);
     }
@@ -44,14 +48,60 @@ const IndexManagement: React.FC = () => {
   const handleSyncData = async () => {
     setIsSyncing(true);
     try {
-      const result = await yahooFinanceService.syncAllIndices();
+      // 首先从数据库中获取所有已有的证券代码
+      const { data: existingSecurities, error: fetchError } = await supabaseClient
+        .from('yahoo_indices')
+        .select('symbol');
       
-      if (result.success) {
-        message.success(result.message);
-      } else {
-        message.error(result.message);
+      if (fetchError) {
+        console.error('获取现有证券代码失败:', fetchError);
+        message.error('获取现有证券代码失败');
+        return;
       }
       
+      const existingSymbols = existingSecurities?.map(security => security.symbol) || [];
+      
+      if (existingSymbols.length === 0) {
+        message.warning('没有需要同步的证券');
+        return;
+      }
+      
+      console.log('开始同步证券数据，共', existingSymbols.length, '个证券');
+      
+      // 对每个证券代码进行同步
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const symbol of existingSymbols) {
+        try {
+          let syncResult;
+          if (selectedApi === 'finnhub') {
+            syncResult = await finnhubService.syncSingleIndex(symbol);
+          } else {
+            syncResult = await alphaVantageService.syncSingleIndex(symbol);
+          }
+          
+          if (syncResult.success) {
+            successCount++;
+            console.log(`证券 ${symbol} 同步成功`);
+          } else {
+            errorCount++;
+            console.error(`证券 ${symbol} 同步失败:`, syncResult.message);
+          }
+        } catch (err) {
+          errorCount++;
+          console.error(`同步证券 ${symbol} 时发生错误:`, err);
+        }
+      }
+      
+      // 显示同步结果
+      if (successCount > 0) {
+        message.success(`成功同步 ${successCount} 个证券数据${errorCount > 0 ? `，${errorCount} 个证券同步失败` : ''}`);
+      } else {
+        message.error(`所有证券同步失败`);
+      }
+      
+      // 重新获取证券数据
       await fetchIndices();
     } catch (err) {
       console.error('同步数据失败:', err);
@@ -77,7 +127,7 @@ const IndexManagement: React.FC = () => {
       volume: record.volume,
       market_type: record.market_type || 'other',
       is_enabled: record.is_enabled ?? true,
-      data_source: record.data_source || 'yahoo-finance2',
+      data_source: record.data_source || 'finnhub',
     });
     setIsModalVisible(true);
   };
@@ -90,44 +140,94 @@ const IndexManagement: React.FC = () => {
   };
 
   const handleEditSubmit = async (values: any) => {
-    if (!currentIndex) return;
-
     try {
-      const { error } = await supabaseClient
-        .from('yahoo_indices')
-        .update({
-          symbol: values.symbol,
-          name: values.name,
-          price: values.price,
-          change: values.change,
-          change_percent: values.change_percent,
-          previous_close: values.previous_close,
-          open: values.open,
-          high: values.high,
-          low: values.low,
-          volume: values.volume,
-          market_type: values.market_type,
-          is_enabled: values.is_enabled,
-          data_source: values.data_source,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', currentIndex.id);
+      // 为非必填字段提供默认值
+      const defaultValues = {
+        name: values.name || values.symbol,
+        price: values.price || 0,
+        change: values.change || 0,
+        change_percent: values.change_percent || 0,
+        previous_close: values.previous_close || 0,
+        open: values.open || 0,
+        high: values.high || 0,
+        low: values.low || 0,
+        volume: values.volume || 0,
+        market_type: values.market_type || 'other',
+        is_enabled: values.is_enabled !== false,
+        data_source: values.data_source || 'manual',
+      };
 
-      if (error) {
-        console.error('Error updating index:', error);
-        message.error('更新指数数据失败');
-        return;
+      if (isEditMode && currentIndex) {
+        // 编辑现有证券
+        const { error } = await supabaseClient
+          .from('yahoo_indices')
+          .update({
+            symbol: values.symbol,
+            name: defaultValues.name,
+            price: defaultValues.price,
+            change: defaultValues.change,
+            change_percent: defaultValues.change_percent,
+            previous_close: defaultValues.previous_close,
+            open: defaultValues.open,
+            high: defaultValues.high,
+            low: defaultValues.low,
+            volume: defaultValues.volume,
+            market_type: defaultValues.market_type,
+            is_enabled: defaultValues.is_enabled,
+            data_source: defaultValues.data_source,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', currentIndex.id);
+
+        if (error) {
+          console.error('Error updating security:', error);
+          message.error('更新证券数据失败');
+          return;
+        }
+
+        message.success('更新证券数据成功');
+      } else {
+        // 添加新证券
+        const { error } = await supabaseClient
+          .from('yahoo_indices')
+          .insert({
+            symbol: values.symbol,
+            name: defaultValues.name,
+            price: defaultValues.price,
+            change: defaultValues.change,
+            change_percent: defaultValues.change_percent,
+            previous_close: defaultValues.previous_close,
+            open: defaultValues.open,
+            high: defaultValues.high,
+            low: defaultValues.low,
+            volume: defaultValues.volume,
+            market_type: defaultValues.market_type,
+            is_enabled: defaultValues.is_enabled,
+            data_source: defaultValues.data_source,
+            timestamp: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            sync_status: 'success',
+            last_sync_time: new Date().toISOString(),
+            sync_error_message: null,
+          });
+
+        if (error) {
+          console.error('Error adding security:', error);
+          message.error('添加证券数据失败');
+          return;
+        }
+
+        message.success('添加证券数据成功');
       }
 
-      message.success('更新指数数据成功');
       setIsModalVisible(false);
       setIsEditMode(false);
       setCurrentIndex(null);
       form.resetFields();
       fetchIndices();
     } catch (err) {
-      console.error('Exception updating index:', err);
-      message.error('更新指数数据时发生异常');
+      console.error('Exception submitting form:', err);
+      message.error('提交表单时发生异常');
     }
   };
 
@@ -139,29 +239,41 @@ const IndexManagement: React.FC = () => {
         .eq('id', record.id);
 
       if (error) {
-        console.error('Error deleting index:', error);
-        message.error('删除指数数据失败');
+        console.error('Error deleting security:', error);
+        message.error('删除证券数据失败');
         return;
       }
 
-      message.success('删除指数数据成功');
+      message.success('删除证券数据成功');
       fetchIndices();
     } catch (err) {
-      console.error('Exception deleting index:', err);
-      message.error('删除指数数据时发生异常');
+      console.error('Exception deleting security:', err);
+      message.error('删除证券数据时发生异常');
     }
   };
 
   const columns = [
     {
-      title: '指数代码',
+      title: '证券代码',
       dataIndex: 'symbol',
       key: 'symbol',
       width: 150,
-      render: (text: string) => <span style={{ fontWeight: 500 }}>{text}</span>,
+      render: (text: string) => (
+        <span 
+          style={{ 
+            fontWeight: 500, 
+            color: '#1890ff', 
+            cursor: 'pointer',
+            textDecoration: 'underline'
+          }} 
+          onClick={() => navigate(`/asset-management/security-detail/${text}`)}
+        >
+          {text}
+        </span>
+      ),
     },
     {
-      title: '指数名称',
+      title: '证券名称',
       dataIndex: 'name',
       key: 'name',
       width: 200,
@@ -206,7 +318,8 @@ const IndexManagement: React.FC = () => {
       width: 120,
       render: (value: string) => {
         const sourceMap: Record<string, { text: string; color: string }> = {
-          'yahoo-finance2': { text: 'Yahoo Finance', color: 'blue' },
+          'alpha-vantage': { text: 'Alpha Vantage', color: 'purple' },
+          'finnhub': { text: 'Finnhub', color: 'green' },
           'manual': { text: '手动录入', color: 'green' },
         };
         const { text, color } = sourceMap[value] || sourceMap['manual'];
@@ -324,7 +437,7 @@ const IndexManagement: React.FC = () => {
           </Button>
           <Popconfirm
             title="确认删除"
-            description="确定要删除这条指数数据吗？"
+            description="确定要删除这条证券数据吗？"
             onConfirm={() => handleDelete(record)}
             okText="确定"
             cancelText="取消"
@@ -347,18 +460,42 @@ const IndexManagement: React.FC = () => {
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
       <Card
         title={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span style={{ fontSize: 20, fontWeight: 600 }}>
-              指数管理
+              证券管理
             </span>
-            <Button
-              type="primary"
-              icon={<SyncOutlined spin={isSyncing} />}
-              onClick={handleSyncData}
-              loading={isSyncing}
-            >
-              同步数据
-            </Button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, color: '#666' }}>数据来源：</span>
+                <Radio.Group
+                  value={selectedApi}
+                  buttonStyle="solid"
+                  onChange={(e) => setSelectedApi(e.target.value)}
+                >
+                  <Radio.Button value="alpha-vantage">Alpha Vantage</Radio.Button>
+                  <Radio.Button value="finnhub">Finnhub</Radio.Button>
+                </Radio.Group>
+              </div>
+              <Button
+                type="primary"
+                icon={<SyncOutlined spin={isSyncing} />}
+                onClick={handleSyncData}
+                loading={isSyncing}
+              >
+                同步数据
+              </Button>
+              <Button
+                type="default"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setCurrentIndex(null);
+                  form.resetFields();
+                  setIsModalVisible(true);
+                }}
+              >
+                添加证券
+              </Button>
+            </div>
           </div>
         }
         style={{ borderRadius: 8 }}
@@ -381,7 +518,7 @@ const IndexManagement: React.FC = () => {
       </Card>
 
       <Modal
-        title={isEditMode ? '编辑指数' : '添加指数'}
+        title={isEditMode ? '编辑证券' : '添加证券'}
         open={isModalVisible}
         onCancel={handleCancel}
         footer={null}
@@ -395,31 +532,31 @@ const IndexManagement: React.FC = () => {
         >
           <Form.Item
             name="symbol"
-            label="指数代码"
-            rules={[{ required: true, message: '请输入指数代码' }]}
+            label="证券代码"
+            rules={[{ required: true, message: '请输入证券代码' }]}
           >
             <Input
               style={{ width: '100%' }}
-              placeholder="请输入指数代码"
+              placeholder="请输入证券代码"
               disabled={isEditMode}
             />
           </Form.Item>
 
           <Form.Item
             name="name"
-            label="指数名称"
-            rules={[{ required: true, message: '请输入指数名称' }]}
+            label="证券名称"
+            rules={[]}
           >
             <Input
               style={{ width: '100%' }}
-              placeholder="请输入指数名称"
+              placeholder="请输入证券名称"
             />
           </Form.Item>
 
           <Form.Item
             name="price"
             label="当前价格"
-            rules={[{ required: true, message: '请输入当前价格' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -432,7 +569,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="change"
             label="涨跌额"
-            rules={[{ required: true, message: '请输入涨跌额' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -444,7 +581,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="change_percent"
             label="涨跌幅(%)"
-            rules={[{ required: true, message: '请输入涨跌幅' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -456,7 +593,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="previous_close"
             label="昨收"
-            rules={[{ required: true, message: '请输入昨收价' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -469,7 +606,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="open"
             label="开盘"
-            rules={[{ required: true, message: '请输入开盘价' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -482,7 +619,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="high"
             label="最高"
-            rules={[{ required: true, message: '请输入最高价' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -495,7 +632,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="low"
             label="最低"
-            rules={[{ required: true, message: '请输入最低价' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -508,7 +645,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="volume"
             label="成交量"
-            rules={[{ required: true, message: '请输入成交量' }]}
+            rules={[]}
           >
             <InputNumber
               style={{ width: '100%' }}
@@ -521,7 +658,7 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="market_type"
             label="市场类型"
-            rules={[{ required: true, message: '请选择市场类型' }]}
+            rules={[]}
           >
             <Select
               style={{ width: '100%' }}
@@ -548,13 +685,14 @@ const IndexManagement: React.FC = () => {
           <Form.Item
             name="data_source"
             label="数据来源"
-            rules={[{ required: true, message: '请选择数据来源' }]}
+            rules={[]}
           >
             <Select
               style={{ width: '100%' }}
               placeholder="请选择数据来源"
               options={[
-                { label: 'Yahoo Finance', value: 'yahoo-finance2' },
+                { label: 'Alpha Vantage', value: 'alpha-vantage' },
+                { label: 'Finnhub', value: 'finnhub' },
                 { label: '手动录入', value: 'manual' },
               ]}
             />

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
-// 申购赎回记录类型定义
 interface SubscriptionRedemptionRecord {
   id: string;
   product_id: string;
@@ -30,31 +32,36 @@ export default function SubscriptionRedemptionRecordsScreen({
   userInfo?: any; 
   onClose?: () => void; 
   onNavigateToSubscriptionApplication?: () => void;
-  onNavigateToRedemptionApplication?: () => void;
+  onNavigateToRedemptionApplication?: (product?: any) => void;
   onNavigateToContracts?: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionRecords, setSubscriptionRecords] = useState<SubscriptionRedemptionRecord[]>([]);
   const [redemptionRecords, setRedemptionRecords] = useState<SubscriptionRedemptionRecord[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'subscription' | 'redemption'>('all');
+  const [isReady, setIsReady] = useState(false);
 
-  // 数据加载函数
   const loadData = useCallback(async (isRefresh: boolean = false) => {
-    setLoading(isRefresh ? false : true);
+    if (!isRefresh) {
+      setLoading(true);
+    }
     setRefreshing(isRefresh);
     setError(null);
     
     try {
       if (!userInfo || !userInfo.id) {
+        console.log('No user info available');
         setSubscriptionRecords([]);
         setRedemptionRecords([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
-
-      // 获取申购赎回记录
+  
+      console.log('Fetching records for user:', userInfo.id);
       const { data, error } = await supabase
         .from('subscription_redemption')
         .select(`
@@ -66,13 +73,17 @@ export default function SubscriptionRedemptionRecordsScreen({
 
       if (error) {
         console.error('获取交易记录失败:', error);
+        setError('获取交易记录失败: ' + error.message);
         setSubscriptionRecords([]);
         setRedemptionRecords([]);
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
 
+      console.log('Fetched data:', data);
+
       if (data && data.length > 0) {
-        // 格式化数据
         const formattedRecords: SubscriptionRedemptionRecord[] = data.map((item: any) => ({
           id: item.id,
           product_id: item.fund_id,
@@ -84,7 +95,6 @@ export default function SubscriptionRedemptionRecordsScreen({
           product: item.product
         }));
 
-        // 分离申购和赎回记录
         const subscriptions = formattedRecords.filter(record => record.type === 'subscription');
         const redemptions = formattedRecords.filter(record => record.type === 'redemption');
 
@@ -94,34 +104,38 @@ export default function SubscriptionRedemptionRecordsScreen({
         setSubscriptionRecords([]);
         setRedemptionRecords([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取交易记录时发生异常:', error);
-      setError('无法加载数据，请检查网络连接或稍后重试');
+      setError('无法加载数据，请检查网络连接或稍后重试: ' + (error?.message || '未知错误'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [userInfo]);
 
-  // 刷新处理
   const handleRefresh = () => {
     loadData(true);
   };
 
-  // 初始数据加载
   useEffect(() => {
-    loadData();
+    console.log('SubscriptionRedemptionRecordsScreen mounted, userInfo:', userInfo);
+    // 延迟一点加载数据，确保组件已完全挂载
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      loadData();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [userInfo, loadData]);
 
-  // 语言翻译
   const t = lang === 'zh' ? {
-    title: '申购/赎回记录',
+    title: '交易记录',
     subscriptionApplication: '申购申请',
     redemptionApplication: '赎回申请',
     subscriptionRedemptionRecords: '交易记录',
     contracts: '合同签订',
     subscriptionRecords: '申购记录',
     redemptionRecords: '赎回记录',
+    allRecords: '全部记录',
     type: '类型',
     subscriptionType: '申购',
     redemptionType: '赎回',
@@ -136,14 +150,17 @@ export default function SubscriptionRedemptionRecordsScreen({
     noRecords: '暂无记录',
     loading: '加载中...',
     error: '加载失败，请稍后重试',
+    nav: '成交净值',
+    totalRecords: '共 {count} 条记录',
   } : {
-    title: 'Subscription/Redemption Records',
+    title: 'Transaction Records',
     subscriptionApplication: 'Subscription Application',
     redemptionApplication: 'Redemption Application',
-    subscriptionRedemptionRecords: 'Subscription/Redemption Records',
+    subscriptionRedemptionRecords: 'Transaction Records',
     contracts: 'Contracts',
     subscriptionRecords: 'Subscription Records',
     redemptionRecords: 'Redemption Records',
+    allRecords: 'All Records',
     type: 'Type',
     subscriptionType: 'Subscription',
     redemptionType: 'Redemption',
@@ -158,9 +175,10 @@ export default function SubscriptionRedemptionRecordsScreen({
     noRecords: 'No records',
     loading: 'Loading...',
     error: 'Failed to load, please try again later',
+    nav: 'NAV',
+    totalRecords: '{count} records total',
   };
 
-  // 状态文本映射
   const getStatusText = (status: string) => {
     const statusMap = {
       pending: t.pending,
@@ -171,234 +189,286 @@ export default function SubscriptionRedemptionRecordsScreen({
     return statusMap[status as keyof typeof statusMap] || status;
   };
 
-  // 状态颜色映射
   const getStatusColor = (status: string) => {
     const colorMap = {
-      pending: '#faad14', // 黄色
-      processing: '#1890ff', // 蓝色
-      completed: '#188038', // 绿色
-      failed: '#d93025', // 红色
+      pending: '#FF9800',
+      processing: '#2196F3',
+      completed: '#4CAF50',
+      failed: '#F44336',
     };
     return colorMap[status as keyof typeof colorMap] || '#666';
   };
 
-  // 渲染申购记录项
-  const renderSubscriptionItem = ({ item }: { item: SubscriptionRedemptionRecord }) => (
-    <View style={styles.recordCard}>
-      {/* 第一行：基金名称 */}
-      <Text style={styles.recordName}>
-        {lang === 'zh' ? item.product.name_cn : item.product.name_en}
-      </Text>
-      <Text style={styles.fundNumber}>{item.product.fund_number}</Text>
-      
-      {/* 第二行：类型、申购金额 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.type}</Text>
-          <Text style={styles.cellValue}>{t.subscriptionType}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.amount}</Text>
-          <Text style={styles.cellValue}>¥{item.settlement_value.toFixed(2)}</Text>
-        </View>
-      </View>
-      
-      {/* 第三行：日期、状态 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.date}</Text>
-          <Text style={styles.cellValue}>{item.created_at.split('T')[0]}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.status}</Text>
-          <Text style={[styles.cellValue, { color: getStatusColor(item.status) }]}>
-            {getStatusText(item.status)}
-          </Text>
-        </View>
-      </View>
-      
-      {/* 第四行：成交价格、成交份额 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>成交价格</Text>
-          <Text style={styles.cellValue}>¥{(item.settlement_value / item.shares).toFixed(4)}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>成交份额</Text>
-          <Text style={styles.cellValue}>{item.shares.toFixed(4)}</Text>
-        </View>
-      </View>
-    </View>
-  );
+  const getStatusBgColor = (status: string) => {
+    const colorMap = {
+      pending: '#FFF3E0',
+      processing: '#E3F2FD',
+      completed: '#E8F5E9',
+      failed: '#FFEBEE',
+    };
+    return colorMap[status as keyof typeof colorMap] || '#F5F5F5';
+  };
 
-  // 渲染赎回记录项
-  const renderRedemptionItem = ({ item }: { item: SubscriptionRedemptionRecord }) => (
-    <View style={styles.recordCard}>
-      {/* 第一行：基金名称 */}
-      <Text style={styles.recordName}>
-        {lang === 'zh' ? item.product.name_cn : item.product.name_en}
-      </Text>
-      <Text style={styles.fundNumber}>{item.product.fund_number}</Text>
-      
-      {/* 第二行：类型、赎回份额 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.type}</Text>
-          <Text style={styles.cellValue}>{t.redemptionType}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>赎回份额</Text>
-          <Text style={styles.cellValue}>{item.shares.toFixed(4)}</Text>
-        </View>
+  const getTypeColor = (type: string) => {
+    return type === 'subscription' ? '#4CAF50' : '#FF5722';
+  };
+
+  const getTypeBgColor = (type: string) => {
+    return type === 'subscription' ? '#E8F5E9' : '#FFEBEE';
+  };
+
+  const getTypeText = (type: string) => {
+    return type === 'subscription' ? t.subscriptionType : t.redemptionType;
+  };
+
+  const getTypeIcon = (type: string) => {
+    return type === 'subscription' ? 'arrow-down-circle' : 'arrow-up-circle';
+  };
+
+  const renderRecordCard = (item: SubscriptionRedemptionRecord) => {
+    const isSubscription = item.type === 'subscription';
+    
+    return (
+      <View style={styles.recordCard}>
+        <LinearGradient
+          colors={isSubscription ? ['#E8F5E9', '#FFFFFF'] : ['#FFEBEE', '#FFFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.recordCardGradient}
+        >
+          <View style={styles.recordCardHeader}>
+            <View style={styles.recordCardHeaderLeft}>
+              <View style={[styles.typeIconContainer, { backgroundColor: getTypeBgColor(item.type) }]}>
+                <Ionicons 
+                  name={getTypeIcon(item.type) as any} 
+                  size={20} 
+                  color={getTypeColor(item.type)} 
+                />
+              </View>
+              <View>
+                <Text style={styles.recordName} numberOfLines={1}>
+                  {lang === 'zh' ? item.product.name_cn : item.product.name_en}
+                </Text>
+                <Text style={styles.fundNumber}>{item.product.fund_number}</Text>
+              </View>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(item.status) }]}>
+              <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+                {getStatusText(item.status)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.recordCardDivider} />
+          
+          <View style={styles.recordCardBody}>
+            <View style={styles.recordInfoRow}>
+              <View style={styles.recordInfoItem}>
+                <Text style={styles.recordInfoLabel}>{t.type}</Text>
+                <Text style={[styles.recordInfoValue, { color: getTypeColor(item.type) }]}>
+                  {getTypeText(item.type)}
+                </Text>
+              </View>
+              <View style={styles.recordInfoItem}>
+                <Text style={styles.recordInfoLabel}>{isSubscription ? t.amount : t.shares}</Text>
+                <Text style={styles.recordInfoValue}>
+                  {isSubscription 
+                    ? `¥${item.settlement_value.toFixed(2)}`
+                    : `${item.shares.toFixed(4)}`
+                  }
+                </Text>
+              </View>
+              <View style={styles.recordInfoItem}>
+                <Text style={styles.recordInfoLabel}>{t.date}</Text>
+                <Text style={styles.recordInfoValue}>
+                  {item.created_at.split('T')[0]}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.recordInfoRow}>
+              <View style={styles.recordInfoItem}>
+                <Text style={styles.recordInfoLabel}>{t.nav}</Text>
+                <Text style={styles.recordInfoValue}>
+                  ¥{(item.settlement_value / item.shares).toFixed(4)}
+                </Text>
+              </View>
+              <View style={styles.recordInfoItem}>
+                <Text style={styles.recordInfoLabel}>
+                  {isSubscription ? '获得份额' : '赎回金额'}
+                </Text>
+                <Text style={styles.recordInfoValue}>
+                  {isSubscription 
+                    ? `${item.shares.toFixed(4)}`
+                    : `¥${item.settlement_value.toFixed(2)}`
+                  }
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
-      
-      {/* 第三行：日期、状态 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.date}</Text>
-          <Text style={styles.cellValue}>{item.created_at.split('T')[0]}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>{t.status}</Text>
-          <Text style={[styles.cellValue, { color: getStatusColor(item.status) }]}>
-            {getStatusText(item.status)}
-          </Text>
-        </View>
-      </View>
-      
-      {/* 第四行：成交净值、赎回金额 */}
-      <View style={styles.row}>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>成交净值</Text>
-          <Text style={styles.cellValue}>¥{(item.settlement_value / item.shares).toFixed(4)}</Text>
-        </View>
-        <View style={styles.cell}>
-          <Text style={styles.cellLabel}>赎回金额</Text>
-          <Text style={styles.cellValue}>¥{item.settlement_value.toFixed(2)}</Text>
-        </View>
-      </View>
-    </View>
-  );
+    );
+  };
+
+  const getAllRecords = () => {
+    const all = [...subscriptionRecords, ...redemptionRecords];
+    return all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  };
+
+  const getDisplayRecords = () => {
+    switch (activeTab) {
+      case 'subscription':
+        return subscriptionRecords;
+      case 'redemption':
+        return redemptionRecords;
+      default:
+        return getAllRecords();
+    }
+  };
+
+  const displayRecords = getDisplayRecords();
 
   return (
     <View style={styles.container}>
-      {/* 顶部头衔 */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
+      <StatusBar barStyle="light-content" backgroundColor="#1A4EA2" />
+      
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        style={[styles.header, { paddingTop: insets.top > 0 ? insets.top : 16 }]}
+      >
+        <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton} onPress={onClose}>
-            <Text style={styles.backButtonText}>←</Text>
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>{t.title}</Text>
+          <Text style={styles.headerTitle}>{t.title}</Text>
+          <TouchableOpacity style={styles.helpButton}>
+            <Ionicons name="headset" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('搜索')}>
-            <Text style={styles.icon}>🔍</Text>
+      </LinearGradient>
+
+      <View style={styles.functionButtonsContainer}>
+        <View style={styles.functionButtons}>
+          <TouchableOpacity 
+            style={styles.functionButton} 
+            onPress={() => onNavigateToSubscriptionApplication?.()}
+          >
+            <View style={styles.functionIconContainer}>
+              <Ionicons name="add-circle" size={22} color="#999" />
+            </View>
+            <Text style={styles.functionButtonText}>{t.subscriptionApplication}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('客服')}>
-            <Text style={styles.icon}>🎧</Text>
+          <TouchableOpacity 
+            style={styles.functionButton} 
+            onPress={() => onNavigateToRedemptionApplication?.()}
+          >
+            <View style={styles.functionIconContainer}>
+              <Ionicons name="remove-circle" size={22} color="#999" />
+            </View>
+            <Text style={styles.functionButtonText}>{t.redemptionApplication}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.functionButton, styles.activeFunctionButton]} 
+          >
+            <View style={[styles.functionIconContainer, styles.activeFunctionIconContainer]}>
+              <Ionicons name="document-text" size={22} color="#FFFFFF" />
+            </View>
+            <Text style={[styles.functionButtonText, styles.activeFunctionButtonText]}>{t.subscriptionRedemptionRecords}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.functionButton} 
+            onPress={() => onNavigateToContracts?.()}
+          >
+            <View style={styles.functionIconContainer}>
+              <Ionicons name="create" size={22} color="#999" />
+            </View>
+            <Text style={styles.functionButtonText}>{t.contracts}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* 顶部功能按钮 */}
-      <View style={styles.functionButtons}>
+      <View style={styles.tabBar}>
         <TouchableOpacity 
-          style={styles.functionButton} 
-          onPress={() => {
-            console.log('申购申请 - 跳转到申购申请页面');
-            onNavigateToSubscriptionApplication?.();
-          }}
+          style={[styles.tabItem, activeTab === 'all' && styles.activeTabItem]}
+          onPress={() => setActiveTab('all')}
         >
-          <Text style={styles.functionButtonIcon}>📥</Text>
-          <Text style={styles.functionButtonText}>{t.subscriptionApplication}</Text>
+          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
+            {t.allRecords}
+          </Text>
+          {activeTab === 'all' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.functionButton} 
-          onPress={() => {
-            console.log('赎回申请 - 跳转到赎回申请页面');
-            onNavigateToRedemptionApplication?.();
-          }}
+          style={[styles.tabItem, activeTab === 'subscription' && styles.activeTabItem]}
+          onPress={() => setActiveTab('subscription')}
         >
-          <Text style={styles.functionButtonIcon}>📤</Text>
-          <Text style={styles.functionButtonText}>{t.redemptionApplication}</Text>
+          <Text style={[styles.tabText, activeTab === 'subscription' && styles.activeTabText]}>
+            {t.subscriptionRecords}
+          </Text>
+          {activeTab === 'subscription' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.functionButton, styles.activeButton]} 
-          onPress={() => {
-            console.log('交易记录 - 当前页面');
-          }}
+          style={[styles.tabItem, activeTab === 'redemption' && styles.activeTabItem]}
+          onPress={() => setActiveTab('redemption')}
         >
-          <Text style={styles.functionButtonIcon}>📋</Text>
-          <Text style={[styles.functionButtonText, styles.activeButtonText]}>{t.subscriptionRedemptionRecords}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.functionButton} 
-          onPress={() => {
-            console.log('合同签订 - 跳转到合同签订页面');
-            onNavigateToContracts?.();
-          }}
-        >
-          <Text style={styles.functionButtonIcon}>📝</Text>
-          <Text style={styles.functionButtonText}>{t.contracts}</Text>
+          <Text style={[styles.tabText, activeTab === 'redemption' && styles.activeTabText]}>
+            {t.redemptionRecords}
+          </Text>
+          {activeTab === 'redemption' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
       </View>
 
-      {/* 内容滚动区域 */}
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#188038']}
-            tintColor="#188038"
+            colors={['#1A4EA2']}
+            tintColor="#1A4EA2"
           />
         }
       >
-        {/* 申购记录区块 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.subscriptionRecords}</Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>{t.loading}</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{t.error}</Text>
-            </View>
-          ) : subscriptionRecords.length > 0 ? (
-            subscriptionRecords.map(item => (
-              <View key={item.id}>{renderSubscriptionItem({ item })}</View>
-            ))
-          ) : (
-            <View style={styles.emptyRecordsContainer}>
-              <Text style={styles.emptyRecordsText}>{t.noRecords}</Text>
-            </View>
-          )}
-        </View>
+        {displayRecords.length > 0 && (
+          <View style={styles.recordCountContainer}>
+            <Text style={styles.recordCountText}>
+              {t.totalRecords.replace('{count}', displayRecords.length.toString())}
+            </Text>
+          </View>
+        )}
 
-        {/* 赎回记录区块 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.redemptionRecords}</Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>{t.loading}</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{t.error}</Text>
-            </View>
-          ) : redemptionRecords.length > 0 ? (
-            redemptionRecords.map(item => (
-              <View key={item.id}>{renderRedemptionItem({ item })}</View>
-            ))
-          ) : (
-            <View style={styles.emptyRecordsContainer}>
-              <Text style={styles.emptyRecordsText}>{t.noRecords}</Text>
-            </View>
-          )}
-        </View>
+        {!isReady ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1A4EA2" />
+            <Text style={styles.loadingText}>{t.loading}</Text>
+          </View>
+        ) : loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1A4EA2" />
+            <Text style={styles.loadingText}>{t.loading}</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color="#F44336" />
+            <Text style={styles.errorText}>{t.error}</Text>
+          </View>
+        ) : displayRecords.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="document-text-outline" size={64} color="#CCC" />
+            <Text style={styles.emptyText}>{t.noRecords}</Text>
+          </View>
+        ) : (
+          <View style={styles.recordsContainer}>
+            {displayRecords.map(item => (
+              <View key={item.id}>
+                {renderRecordCard(item)}
+              </View>
+            ))}
+          </View>
+        )}
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </View>
   );
@@ -407,207 +477,246 @@ export default function SubscriptionRedemptionRecordsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F5F7FA',
   },
   header: {
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    color: '#333',
-    fontSize: 24,
-    fontWeight: '700',
+    height: 56,
   },
   backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
-    fontWeight: '600',
-  },
-  headerIcons: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  iconButton: {
-    padding: 8,
-    marginLeft: 12,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  icon: {
-    fontSize: 20,
-    color: '#333',
+  helpButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  // 功能按钮样式
+  functionButtonsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F7FA',
+  },
   functionButtons: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   functionButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 8,
   },
-  activeButton: {
-    backgroundColor: '#e6f4ea',
+  activeFunctionButton: {
+    // Active state
   },
-  functionButtonIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+  functionIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F5F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  activeFunctionIconContainer: {
+    backgroundColor: '#9C27B0',
   },
   functionButtonText: {
-    fontSize: 12,
-    color: '#333',
-    textAlign: 'center',
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
   },
-  activeButtonText: {
-    color: '#188038',
+  activeFunctionButtonText: {
+    color: '#9C27B0',
     fontWeight: '600',
   },
-  // 区块样式
-  section: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  sectionTitle: {
-    fontSize: 18,
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    position: 'relative',
+  },
+  activeTabItem: {
+    // Active state
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#999',
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#1A4EA2',
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
   },
-  // 滚动视图样式
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#1A4EA2',
+  },
   scrollView: {
     flex: 1,
   },
-  // 记录列表样式
-  recordsList: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
   },
-  recordsListContent: {
-    paddingBottom: 20,
+  recordCountContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  recordCountText: {
+    fontSize: 13,
+    color: '#999',
+  },
+  recordsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   recordCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  recordCardGradient: {
+    // Gradient background
+  },
+  recordCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  recordCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  typeIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   recordName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
   },
   fundNumber: {
     fontSize: 12,
-    color: '#666',
+    color: '#999',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  recordCardDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 16,
+  },
+  recordCardBody: {
+    padding: 16,
+  },
+  recordInfoRow: {
+    flexDirection: 'row',
     marginBottom: 12,
   },
-  // 表格化布局样式
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 8,
-  },
-  cell: {
+  recordInfoItem: {
     flex: 1,
   },
-  cellLabel: {
-    fontSize: 12,
+  recordInfoLabel: {
+    fontSize: 11,
     color: '#999',
     marginBottom: 4,
   },
-  cellValue: {
+  recordInfoValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#333',
   },
-  recordDetails: {
-    gap: 12,
-  },
-  recordDetailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  recordDetailLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  recordDetailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  // 空状态样式
-  emptyRecordsContainer: {
-    backgroundColor: '#fff',
-    padding: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyRecordsText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  // 加载状态样式
   loadingContainer: {
-    backgroundColor: '#fff',
-    padding: 32,
-    borderRadius: 12,
+    flex: 1,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: '#999',
+    marginTop: 12,
   },
-  // 错误状态样式
   errorContainer: {
-    backgroundColor: '#fff',
-    padding: 32,
-    borderRadius: 12,
+    flex: 1,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   errorText: {
-    fontSize: 16,
-    color: '#d93025',
-    textAlign: 'center',
+    fontSize: 14,
+    color: '#F44336',
+    marginTop: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 16,
+  },
+  bottomPadding: {
+    height: 30,
   },
 });

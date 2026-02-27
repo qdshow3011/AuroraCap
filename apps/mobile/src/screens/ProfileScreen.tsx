@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, Pressable, Image, ScrollView, Platform } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onEditAccountInfo, onNavigateToAvatarEdit, observerHoldings, observerTransactions, isDemo, onNavigateToAssetStatus, onNavigateToFundTransactions, onNavigateToSubscriptionRedemptionRecords, onNavigateToCustomerService, onNavigateToMessageCenter, onNavigateToApplicationProcessing, onNavigateToMyCustomers, onNavigateToFunctionSettings, onNavigateToSystemSettings, onNavigateToHelpCenter, onNavigateToSecurityCenter, onNavigateToAboutUs, appVersion = 'standard', onNavigateToVersionSwitch, lang = 'zh' }: { userInfo?: any; onSwitchAccount: () => void; onLogout: () => void; onEditAccountInfo: () => void; onNavigateToAvatarEdit?: () => void; observerHoldings?: any[]; observerTransactions?: any[]; isDemo?: boolean; onNavigateToAssetStatus?: () => void; onNavigateToFundTransactions?: () => void; onNavigateToSubscriptionRedemptionRecords?: () => void; onNavigateToCustomerService?: () => void; onNavigateToMessageCenter?: (category?: 'all' | 'system' | 'investment') => void; onNavigateToApplicationProcessing?: () => void; onNavigateToMyCustomers?: () => void; onNavigateToFunctionSettings?: () => void; onNavigateToSystemSettings?: () => void; onNavigateToHelpCenter?: () => void; onNavigateToSecurityCenter?: () => void; onNavigateToAboutUs?: () => void; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateToVersionSwitch?: () => void; lang?: 'zh' | 'en' }) {
+export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onEditAccountInfo, onNavigateToAvatarEdit, observerHoldings, observerTransactions, isDemo, onNavigateToAssetStatus, onNavigateToFundTransactions, onNavigateToSubscriptionRedemptionRecords, onNavigateToCustomerService, onNavigateToMessageCenter, onNavigateToApplicationProcessing, onNavigateToMyCustomers, onNavigateToFunctionSettings, onNavigateToSystemSettings, onNavigateToHelpCenter, onNavigateToSecurityCenter, onNavigateToAboutUs, appVersion = 'standard', onNavigateToVersionSwitch, lang = 'zh', onNavigateToFundCompanyProducts, onNavigateToFundCompanyChat, onNavigateToFundCompanyOfficialAccount, onNavigateToFundCompanyManagement, onNavigateToPartnerList, onNavigateToFundManagerList, onNavigateToCustomerServiceList }: { userInfo?: any; onSwitchAccount: () => void; onLogout: () => void; onEditAccountInfo: () => void; onNavigateToAvatarEdit?: () => void; observerHoldings?: any[]; observerTransactions?: any[]; isDemo?: boolean; onNavigateToAssetStatus?: () => void; onNavigateToFundTransactions?: () => void; onNavigateToSubscriptionRedemptionRecords?: () => void; onNavigateToCustomerService?: () => void; onNavigateToMessageCenter?: (category?: 'all' | 'system' | 'investment') => void; onNavigateToApplicationProcessing?: () => void; onNavigateToMyCustomers?: () => void; onNavigateToFunctionSettings?: () => void; onNavigateToSystemSettings?: () => void; onNavigateToHelpCenter?: () => void; onNavigateToSecurityCenter?: () => void; onNavigateToAboutUs?: () => void; appVersion?: 'standard' | 'simple' | 'premium'; onNavigateToVersionSwitch?: () => void; lang?: 'zh' | 'en'; onNavigateToFundCompanyProducts?: () => void; onNavigateToFundCompanyChat?: () => void; onNavigateToFundCompanyOfficialAccount?: () => void; onNavigateToFundCompanyManagement?: () => void; onNavigateToPartnerList?: () => void; onNavigateToFundManagerList?: () => void; onNavigateToCustomerServiceList?: () => void }) {
   // 获取安全区域信息
   const insets = useSafeAreaInsets();
   // 获取角色显示名称
@@ -12,11 +13,14 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
       case 'customer':
         return '客户';
       case 'waiter':
+      case 'cs':
         return '客服';
       case 'admin':
         return '管理员';
       case 'partner':
         return '合伙人';
+      case 'fund_company':
+        return '基金管理员';
       default:
         return '未知';
     }
@@ -195,7 +199,8 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
 
   return (
     <View style={styles.container}>
-      {/* 顶部用户信息区 - 固定 */}
+      <StatusBar style="dark" />
+      {/* 顶部导航栏 */}
       <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
         <View style={styles.userInfo}>
           <Pressable style={styles.avatarContainer} onPress={() => onNavigateToAvatarEdit?.()}>
@@ -243,34 +248,46 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
               </View>
             )} */}
             
-            {/* 服务员（客服）角色 */}
+            {/* 客服角色（服务员和客服统一） */}
             {(userInfo?.role === 'waiter' || userInfo?.role === 'cs') && (
               <>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToCustomerService?.()}>
-                  <Text style={styles.functionIcon}>💬</Text>
-                  <Text style={styles.functionName}>客户对话</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMyCustomers?.()}>
+                  <Text style={styles.functionIcon}>👥</Text>
+                  <Text style={styles.functionName}>客户列表</Text>
                 </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.()}>
-                  <Text style={styles.functionIcon}>📢</Text>
-                  <Text style={styles.functionName}>消息查阅</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToPartnerList?.()}>
+                  <Text style={styles.functionIcon}>🤝</Text>
+                  <Text style={styles.functionName}>合伙人列表</Text>
                 </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToApplicationProcessing?.()}>
-                  <Text style={styles.functionIcon}>📋</Text>
-                  <Text style={styles.functionName}>申请办理</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToFundManagerList?.()}>
+                  <Text style={styles.functionIcon}>🏢</Text>
+                  <Text style={styles.functionName}>基金管理员列表</Text>
                 </Pressable>
               </>
             )}
-            
+
             {/* 管理员角色 */}
             {userInfo?.role === 'admin' && (
               <>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.()}>
-                  <Text style={styles.functionIcon}>📢</Text>
-                  <Text style={styles.functionName}>消息查阅</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMyCustomers?.()}>
+                  <Text style={styles.functionIcon}>👥</Text>
+                  <Text style={styles.functionName}>客户列表</Text>
                 </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToApplicationProcessing?.()}>
-                  <Text style={styles.functionIcon}>📋</Text>
-                  <Text style={styles.functionName}>申请办理</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToPartnerList?.()}>
+                  <Text style={styles.functionIcon}>🤝</Text>
+                  <Text style={styles.functionName}>合伙人列表</Text>
+                </Pressable>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToFundManagerList?.()}>
+                  <Text style={styles.functionIcon}>🏢</Text>
+                  <Text style={styles.functionName}>基金管理员列表</Text>
+                </Pressable>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToCustomerServiceList?.()}>
+                  <Text style={styles.functionIcon}>🎧</Text>
+                  <Text style={styles.functionName}>客服列表</Text>
+                </Pressable>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.('all')}>
+                  <Text style={styles.functionIcon}>📨</Text>
+                  <Text style={styles.functionName}>消息查阅</Text>
                 </Pressable>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToFunctionSettings?.()}>
                   <Text style={styles.functionIcon}>⚙️</Text>
@@ -290,33 +307,51 @@ export default function ProfileScreen({ userInfo, onSwitchAccount, onLogout, onE
                   <Text style={styles.functionIcon}>💵</Text>
                   <Text style={styles.functionName}>我的佣金</Text>
                 </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToSubscriptionRedemptionRecords?.()}>
-                  <Text style={styles.functionIcon}>📋</Text>
-                  <Text style={styles.functionName}>我的投资</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.('all')}>
+                  <Text style={styles.functionIcon}>📨</Text>
+                  <Text style={styles.functionName}>消息中心</Text>
                 </Pressable>
               </>
             )}
-            
+
+            {/* 基金管理员角色 */}
+            {userInfo?.role === 'fund_company' && (
+              <>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToFundCompanyManagement?.()}>
+                  <Text style={styles.functionIcon}>🏢</Text>
+                  <Text style={styles.functionName}>基金公司管理</Text>
+                </Pressable>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToFundCompanyProducts?.()}>
+                  <Text style={styles.functionIcon}>📦</Text>
+                  <Text style={styles.functionName}>基金产品管理</Text>
+                </Pressable>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.('all')}>
+                  <Text style={styles.functionIcon}>📨</Text>
+                  <Text style={styles.functionName}>消息中心</Text>
+                </Pressable>
+              </>
+            )}
+
             {/* 客户角色 */}
             {userInfo?.role === 'customer' && (
               <>
+                <Pressable style={styles.functionItem} onPress={() => alert('我投资的产品功能开发中')}>
+                  <Text style={styles.functionIcon}>📈</Text>
+                  <Text style={styles.functionName}>我投资的产品</Text>
+                </Pressable>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToAssetStatus?.()}>
                   <Text style={styles.functionIcon}>💰</Text>
-                  <Text style={styles.functionName}>资产状况</Text>
+                  <Text style={styles.functionName}>我的资产</Text>
                 </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToFundTransactions?.()}>
-                  <Text style={styles.functionIcon}>💸</Text>
-                  <Text style={styles.functionName}>资金往来</Text>
-                </Pressable>
-                <Pressable style={styles.functionItem} onPress={() => onNavigateToSubscriptionRedemptionRecords?.()}>
-                  <Text style={styles.functionIcon}>📋</Text>
-                  <Text style={styles.functionName}>交易记录</Text>
+                <Pressable style={styles.functionItem} onPress={() => onNavigateToMessageCenter?.('all')}>
+                  <Text style={styles.functionIcon}>📨</Text>
+                  <Text style={styles.functionName}>消息中心</Text>
                 </Pressable>
               </>
             )}
             
             {/* 兜底条件：如果以上条件都不满足，显示基本功能按钮 */}
-            {!(userInfo?.role === 'waiter' || userInfo?.role === 'cs' || userInfo?.role === 'admin' || userInfo?.role === 'partner' || userInfo?.role === 'customer') && (
+            {!(userInfo?.role === 'waiter' || userInfo?.role === 'cs' || userInfo?.role === 'admin' || userInfo?.role === 'partner' || userInfo?.role === 'customer' || userInfo?.role === 'fund_company') && (
               <>
                 <Pressable style={styles.functionItem} onPress={() => onNavigateToAssetStatus?.()}>
                   <Text style={styles.functionIcon}>💰</Text>

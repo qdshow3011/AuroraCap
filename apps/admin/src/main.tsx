@@ -116,7 +116,7 @@ const AdminLogin: React.FC<{ onLogin: (user: any) => void }> = ({ onLogin }) => 
             color: '#1890ff',
             marginBottom: 8
           }}>
-            Aurora Fund Management Co., Ltd.
+            Aurora Intelligent Fund SPC Ltd.
           </h1>
           <p style={{ fontSize: 14, color: '#666' }}>
             管理员登录
@@ -201,7 +201,7 @@ const AdminLogin: React.FC<{ onLogin: (user: any) => void }> = ({ onLogin }) => 
           fontSize: 12,
           color: '#999'
         }}>
-          © {new Date().getFullYear()} Aurora Fund Management Co., Ltd.
+          © {new Date().getFullYear()} Aurora Intelligent Fund SPC Ltd.
         </div>
       </Card>
     </div>

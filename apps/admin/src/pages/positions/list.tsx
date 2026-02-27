@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Form, InputNumber, message, Modal, Table, Popconfirm } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Position, Fund, User } from '@aurora/types';
+import { Position, Fund, User } from '../../types';
 import { supabaseClient } from '../../main';
 
 

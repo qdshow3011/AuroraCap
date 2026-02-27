@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image, TouchableOpacity, TextInput, Platform } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import HTML from 'react-native-render-html'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 
 // 公众号类型定义
 interface OfficialAccount {
@@ -250,46 +252,59 @@ export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'sta
 
   return (
     <View style={styles.container}>
-      {/* 顶部标题 */}
-      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
-        <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>{t.insiderNews}</Text>
-        
-        {/* 搜索框 */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={versionStyles.fontSize.base} color="#999" style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { fontSize: versionStyles.fontSize.small }]}
-            placeholder={lang === 'zh' ? '搜索内参' : 'Search Insider'}
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+      <StatusBar style="light" />
+      
+      {/* 渐变头部背景 */}
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: Platform.OS === 'web' ? 20 : insets.top }]}
+      >
+        {/* 顶部导航栏 */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { fontSize: versionStyles.fontSize.large, fontWeight: versionStyles.fontWeight.bold }]}>{t.insiderNews}</Text>
+          
+          {/* 搜索框 */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={18} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { fontSize: versionStyles.fontSize.small }]}
+              placeholder={lang === 'zh' ? '搜索内参' : 'Search Insider'}
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          
+          <View style={styles.headerIcons}>
+            {/* 撰写内参图标 */}
+            <TouchableOpacity style={styles.iconButton} onPress={() => {
+              onNavigateTo && onNavigateTo('create-insider');
+            }}>
+              <View style={styles.iconButtonBg}>
+                <Ionicons name="create-outline" size={20} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            {/* 配置公众号图标 */}
+            <TouchableOpacity style={styles.iconButton} onPress={() => {
+              onNavigateTo && onNavigateTo('configure-accounts');
+            }}>
+              <View style={styles.iconButtonBg}>
+                <Ionicons name="settings-outline" size={20} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            {/* 草稿箱图标 */}
+            <TouchableOpacity style={styles.iconButton} onPress={() => {
+              onNavigateTo && onNavigateTo('draft-box');
+            }}>
+              <View style={styles.iconButtonBg}>
+                <Ionicons name="document-text-outline" size={20} color="#fff" />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
-        
-        <View style={styles.headerIcons}>
-          {/* 撰写内参图标 */}
-          <TouchableOpacity style={styles.iconButton} onPress={() => {
-
-            onNavigateTo && onNavigateTo('create-insider');
-          }}>
-            <Ionicons name="create-outline" size={versionStyles.fontSize.base} color="#333" />
-          </TouchableOpacity>
-          {/* 配置公众号图标 */}
-          <TouchableOpacity style={styles.iconButton} onPress={() => {
-
-            onNavigateTo && onNavigateTo('configure-accounts');
-          }}>
-            <Ionicons name="settings-outline" size={versionStyles.fontSize.base} color="#333" />
-          </TouchableOpacity>
-          {/* 草稿箱图标 */}
-          <TouchableOpacity style={styles.iconButton} onPress={() => {
-
-            onNavigateTo && onNavigateTo('draft-box');
-          }}>
-            <Ionicons name="document-text-outline" size={versionStyles.fontSize.base} color="#333" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      </LinearGradient>
 
       {/* 微信公众号风格的顶部常看公众号区块 */}
       {accounts.length > 0 && (
@@ -369,13 +384,14 @@ export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'sta
           <RefreshControl 
             refreshing={refreshing} 
             onRefresh={handleRefresh} 
-            colors={['#3b82f6']} 
-            tintColor='#3b82f6'
+            colors={['#1A4EA2']} 
+            tintColor='#1A4EA2'
           />
         }
       >
         {articles.length === 0 ? (
           <View style={styles.emptyContainer}>
+            <Ionicons name="document-text-outline" size={64} color="#CCC" />
             <Text style={styles.emptyText}>{loading ? t.loading : t.noNews}</Text>
           </View>
         ) : (
@@ -439,12 +455,15 @@ export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'sta
                 {/* 统计数据 */}
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
+                    <Ionicons name="eye-outline" size={14} color="#999" />
                     <Text style={styles.statText}>{article.read_count || 0} 阅读</Text>
                   </View>
                   <View style={styles.statItem}>
+                    <Ionicons name="heart-outline" size={14} color="#999" />
                     <Text style={styles.statText}>{article.like_count || 0} 赞</Text>
                   </View>
                   <View style={styles.statItem}>
+                    <Ionicons name="chatbubble-outline" size={14} color="#999" />
                     <Text style={styles.statText}>{article.comment_count || 0} 评论</Text>
                   </View>
                 </View>
@@ -463,19 +482,21 @@ export default function InsiderNewsScreen({ lang = 'zh', demo, appVersion = 'sta
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5', // 淡浅灰色
+    backgroundColor: '#F5F7FA',
+  },
+  headerGradient: {
+    paddingBottom: 16,
   },
   header: {
-    paddingHorizontal: 12, // 缩小左右缝隙
-    paddingTop: 40,
-    paddingBottom: 16,
-    backgroundColor: '#f0f2f5',
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   title: {
-    color: '#333', // 黑色标题
+    color: '#fff',
     fontSize: 24,
     fontWeight: '700',
   },
@@ -483,10 +504,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    marginHorizontal: 16,
+    marginHorizontal: 12,
+    height: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchIcon: {
     marginRight: 8,
@@ -502,8 +529,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    padding: 8,
-    marginLeft: 12,
+    marginLeft: 8,
+  },
+  iconButtonBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   icon: {
     fontSize: 20,
@@ -511,7 +545,7 @@ const styles = StyleSheet.create({
   },
   newsList: {
     flex: 1,
-    paddingHorizontal: 0.2, // 与手机边界0.2px
+    paddingHorizontal: 12,
     paddingBottom: 16,
   },
   emptyContainer: {
@@ -522,15 +556,20 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: '#999',
-    fontSize: 16,
+    fontSize: 14,
+    marginTop: 16,
   },
   newsItem: {
     backgroundColor: '#fff',
-    marginBottom: 8,
+    marginBottom: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 8,
-    borderBottomColor: '#f5f5f5',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   // 微信公众号风格的头部
   wechatHeader: {
@@ -544,9 +583,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   accountAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#1AAD19',
     justifyContent: 'center',
     alignItems: 'center',
@@ -554,7 +593,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   accountName: {
@@ -568,48 +607,59 @@ const styles = StyleSheet.create({
   },
   newsTitle: {
     color: '#333',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     marginBottom: 8,
-    lineHeight: 26,
+    lineHeight: 24,
   },
   newsBody: {
     color: '#666',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 12,
   },
   // 带图片的文章布局
   articleWithImage: {
     width: '100%',
     marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   featuredImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 4,
+    height: 180,
+    borderRadius: 12,
   },
   // 统计数据样式
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
   statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginRight: 16,
   },
   statText: {
     fontSize: 12,
     color: '#999',
+    marginLeft: 4,
   },
   // 微信公众号风格的顶部区块样式
   wechatAccountsSection: {
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 12,
-    marginBottom: 8,
+    backgroundColor: '#fff',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   sectionTitle: {
-    fontSize: 10,
-    fontWeight: '400',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#333',
     marginBottom: 12,
     paddingHorizontal: 16,
@@ -620,23 +670,13 @@ const styles = StyleSheet.create({
   },
   accountCard: {
     alignItems: 'center',
-    marginHorizontal: 4,
-    paddingHorizontal: 8,
-    width: 80,
-  },
-  accountAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    marginHorizontal: 6,
+    paddingHorizontal: 4,
+    width: 72,
   },
   accountAvatarSelected: {
-    borderColor: '#1AAD19',
+    borderColor: '#1A4EA2',
+    borderWidth: 2,
   },
   accountAvatarImage: {
     width: '100%',
@@ -644,14 +684,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   accountNameText: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#666',
     textAlign: 'center',
     lineHeight: 14,
     maxWidth: '100%',
+    marginTop: 6,
   },
   accountNameTextSelected: {
-    color: '#1AAD19',
-    fontWeight: '500',
+    color: '#1A4EA2',
+    fontWeight: '600',
   },
 })

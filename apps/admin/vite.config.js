@@ -18,6 +18,25 @@ export default defineConfig({
     build: {
         // Enable sourcemap for debugging
         sourcemap: true,
+        // Adjust chunk size warning limit (in kB)
+        chunkSizeWarningLimit: 10000, // 10000 kB = 10 MB
+        // Optimize chunking strategy
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    // Vendor chunks
+                    vendor: ['react', 'react-dom', 'react-router-dom'],
+                    // Ant Design chunks
+                    antd: ['antd', '@ant-design/icons'],
+                    // Refine chunks
+                    refine: ['@refinedev/core', '@refinedev/antd', '@refinedev/react-router-v6'],
+                    // Supabase chunks
+                    supabase: ['@supabase/supabase-js', '@refinedev/supabase'],
+                    // Yahoo Finance chunks
+                    yahoo: ['yahoo-finance2'],
+                },
+            },
+        },
     },
     server: {
         // 添加IBKR API代理配置，解决开发环境CORS问题

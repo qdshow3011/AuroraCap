@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Pressable, StyleSheet, StatusBar, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import PortfolioScreen from './src/screens/PortfolioScreen'
 import InsiderDetail from './src/screens/InsiderDetail'
 import InsiderList from './src/screens/InsiderList'
@@ -45,7 +46,65 @@ import HelpScreen from './src/screens/HelpScreen'
 import SecurityCenterScreen from './src/screens/SecurityCenterScreen'
 import AboutUsScreen from './src/screens/AboutUsScreen'
 import FeedbackScreen from './src/screens/FeedbackScreen'
+import FundCompanyProductsScreen from './src/screens/FundCompanyProductsScreen'
+import FundCompanyChatScreen from './src/screens/FundCompanyChatScreen'
+import FundCompanyOfficialAccountScreen from './src/screens/FundCompanyOfficialAccountScreen'
+import FundCompanyManagementScreen from './src/screens/FundCompanyManagementScreen'
+import CustomerListScreen from './src/screens/CustomerListScreen'
+import PartnerListScreen from './src/screens/PartnerListScreen'
+import FundManagerListScreen from './src/screens/FundManagerListScreen'
+import CustomerServiceListScreen from './src/screens/CustomerServiceListScreen'
 import { supabase } from './src/lib/supabase'
+
+// 主题色配置
+const THEME = {
+  primary: '#1A4EA2',
+  primaryLight: '#2E6CD1',
+  primaryDark: '#0F3A7A',
+  secondary: '#4CAF50',
+  warning: '#FF9800',
+  error: '#F44336',
+  background: '#F5F7FA',
+  cardBg: '#FFFFFF',
+  textPrimary: '#1A1A2E',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
+  success: '#10B981',
+  danger: '#EF4444',
+  // 圆角规范
+  radius: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    full: 9999
+  },
+  // 阴影规范
+  shadow: {
+    sm: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2
+    },
+    md: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4
+    },
+    lg: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 8
+    }
+  }
+}
 
 export default function App() {
   const [isDemo, setIsDemo] = useState(false)
@@ -113,6 +172,15 @@ export default function App() {
   const [showAboutUs, setShowAboutUs] = useState(false)
   // 意见反馈相关状态
   const [showFeedback, setShowFeedback] = useState(false)
+  // 基金公司相关状态
+  const [showFundCompanyProducts, setShowFundCompanyProducts] = useState(false)
+  const [showFundCompanyChat, setShowFundCompanyChat] = useState(false)
+  const [showFundCompanyOfficialAccount, setShowFundCompanyOfficialAccount] = useState(false)
+  const [showFundCompanyManagement, setShowFundCompanyManagement] = useState(false)
+  const [showCustomerList, setShowCustomerList] = useState(false)
+  const [showPartnerList, setShowPartnerList] = useState(false)
+  const [showFundManagerList, setShowFundManagerList] = useState(false)
+  const [showCustomerServiceList, setShowCustomerServiceList] = useState(false)
   const demoUnlocked = isDemo
   
   // 语言翻译
@@ -272,7 +340,11 @@ export default function App() {
 
     if (!showAuth) {
       return (
-        <SplashScreen lang={lang} onLangChange={setLang} onLogin={() => setShowAuth('login')} onRegister={() => setShowAuth('register')} />
+        <SafeAreaProvider style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
+            <SplashScreen lang={lang} onLangChange={setLang} onLogin={() => setShowAuth('login')} onRegister={() => setShowAuth('register')} />
+          </View>
+        </SafeAreaProvider>
       );
     } else {
       return (
@@ -296,16 +368,18 @@ export default function App() {
   // 如果显示内参详情页，覆盖整个界面
   if (showInsiderDetail && selectedInsiderArticle) {
     return (
-      <InsiderDetail 
-        article={selectedInsiderArticle} 
-        lang={lang}
-        userInfo={userInfo}
-        appVersion={appVersion}
-        onClose={() => {
-          setShowInsiderDetail(false)
-          setSelectedInsiderArticle(null)
-        }} 
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <InsiderDetail 
+            article={selectedInsiderArticle} 
+            lang={lang}
+            onClose={() => {
+              setShowInsiderDetail(false)
+              setSelectedInsiderArticle(null)
+            }} 
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
@@ -330,23 +404,25 @@ export default function App() {
   // 如果显示资产状况页面，覆盖整个界面
   if (showAssetStatus) {
     return (
-      <AssetStatusScreen 
-        lang={lang} 
-        userInfo={userInfo} 
-        onClose={() => setShowAssetStatus(false)} 
-        onNavigateToCustomerService={() => {
-          setShowAssetStatus(false);
-          setShowCustomerService(true);
-        }} 
-        onNavigateToWithdrawalApplication={() => {
-          setShowAssetStatus(false);
-          setShowWithdrawalApplication(true);
-        }} 
-        onNavigateToFundTransactions={() => {
-          setShowAssetStatus(false);
-          setShowFundTransactions(true);
-        }} 
-      />
+      <SafeAreaProvider>
+        <AssetStatusScreen 
+          lang={lang} 
+          userInfo={userInfo} 
+          onClose={() => setShowAssetStatus(false)} 
+          onNavigateToCustomerService={() => {
+            setShowAssetStatus(false);
+            setShowCustomerService(true);
+          }} 
+          onNavigateToWithdrawalApplication={() => {
+            setShowAssetStatus(false);
+            setShowWithdrawalApplication(true);
+          }} 
+          onNavigateToFundTransactions={() => {
+            setShowAssetStatus(false);
+            setShowFundTransactions(true);
+          }} 
+        />
+      </SafeAreaProvider>
     );
   }
 
@@ -492,69 +568,73 @@ export default function App() {
   // 如果显示申购申请页面，覆盖整个界面
   if (showSubscriptionApplication) {
     return (
-      <SubscriptionApplicationScreen 
-        product={subscriptionProduct} 
-        lang={lang} 
-        userInfo={userInfo} 
-        onClose={() => {
-          setShowSubscriptionApplication(false)
-          setSubscriptionProduct(null)
-        }}
-        onSuccess={(subscriptionId) => {
-          setSubscriptionId(subscriptionId)
-          setShowSubscriptionSuccess(true)
-        }}
-        onNavigateToRedemptionApplication={() => {
-          setShowSubscriptionApplication(false)
-          setSubscriptionProduct(null)
-          setShowRedemptionApplication(true)
-        }}
-        onNavigateToSubscriptionRedemptionRecords={() => {
-          setShowSubscriptionApplication(false)
-          setSubscriptionProduct(null)
-          setShowSubscriptionRedemptionRecords(true)
-        }}
-        onNavigateToContracts={() => {
-          setShowSubscriptionApplication(false)
-          setSubscriptionProduct(null)
-          setShowContractSigning(true)
-        }}
-      />
+      <SafeAreaProvider>
+        <SubscriptionApplicationScreen 
+          product={subscriptionProduct} 
+          lang={lang} 
+          userInfo={userInfo} 
+          onClose={() => {
+            setShowSubscriptionApplication(false)
+            setSubscriptionProduct(null)
+          }}
+          onSuccess={(subscriptionId) => {
+            setSubscriptionId(subscriptionId)
+            setShowSubscriptionSuccess(true)
+          }}
+          onNavigateToRedemptionApplication={() => {
+            setShowSubscriptionApplication(false)
+            setSubscriptionProduct(null)
+            setShowRedemptionApplication(true)
+          }}
+          onNavigateToSubscriptionRedemptionRecords={() => {
+            setShowSubscriptionApplication(false)
+            setSubscriptionProduct(null)
+            setShowSubscriptionRedemptionRecords(true)
+          }}
+          onNavigateToContracts={() => {
+            setShowSubscriptionApplication(false)
+            setSubscriptionProduct(null)
+            setShowContractSigning(true)
+          }}
+        />
+      </SafeAreaProvider>
     );
   }
 
   // 如果显示赎回申请页面，覆盖整个界面
   if (showRedemptionApplication) {
     return (
-      <RedemptionApplicationScreen 
-        lang={lang} 
-        userInfo={userInfo} 
-        observerHoldings={observerHoldings}
-        product={redemptionProduct}
-        onClose={() => {
-          setShowRedemptionApplication(false)
-          setRedemptionProduct(null)
-        }}
-        onSuccess={(redemptionId) => {
-          setRedemptionId(redemptionId)
-          setShowRedemptionSuccess(true)
-        }}
-        onNavigateToSubscriptionApplication={() => {
-          setShowRedemptionApplication(false)
-          setRedemptionProduct(null)
-          setShowSubscriptionApplication(true)
-        }}
-        onNavigateToSubscriptionRedemptionRecords={() => {
-          setShowRedemptionApplication(false)
-          setRedemptionProduct(null)
-          setShowSubscriptionRedemptionRecords(true)
-        }}
-        onNavigateToContracts={() => {
-          setShowRedemptionApplication(false)
-          setRedemptionProduct(null)
-          setShowContractSigning(true)
-        }}
-      />
+      <SafeAreaProvider>
+        <RedemptionApplicationScreen 
+          lang={lang} 
+          userInfo={userInfo} 
+          observerHoldings={observerHoldings}
+          product={redemptionProduct}
+          onClose={() => {
+            setShowRedemptionApplication(false)
+            setRedemptionProduct(null)
+          }}
+          onSuccess={(redemptionId) => {
+            setRedemptionId(redemptionId)
+            setShowRedemptionSuccess(true)
+          }}
+          onNavigateToSubscriptionApplication={() => {
+            setShowRedemptionApplication(false)
+            setRedemptionProduct(null)
+            setShowSubscriptionApplication(true)
+          }}
+          onNavigateToSubscriptionRedemptionRecords={() => {
+            setShowRedemptionApplication(false)
+            setRedemptionProduct(null)
+            setShowSubscriptionRedemptionRecords(true)
+          }}
+          onNavigateToContracts={() => {
+            setShowRedemptionApplication(false)
+            setRedemptionProduct(null)
+            setShowContractSigning(true)
+          }}
+        />
+      </SafeAreaProvider>
     );
   }
   
@@ -574,57 +654,65 @@ export default function App() {
   // 如果显示入金服务页面
   if (showDepositService) {
     return (
-      <DepositServiceScreen 
-        lang={lang} 
-        onClose={() => setShowDepositService(false)} 
-        onNavigateToCustomerService={() => setShowCustomerService(true)} 
-      />
+      <SafeAreaProvider>
+        <DepositServiceScreen 
+          lang={lang} 
+          onClose={() => setShowDepositService(false)} 
+          onNavigateToCustomerService={() => setShowCustomerService(true)} 
+        />
+      </SafeAreaProvider>
     );
   }
   
   // 如果显示客服页面
   if (showCustomerService) {
     return (
-      <CustomerServiceScreen 
-        lang={lang} 
-        onClose={() => {
-          setShowCustomerService(false);
-          setConsultationType(undefined); // 重置咨询类型
-        }} 
-        userInfo={userInfo}
-        consultationType={consultationType}
-        onNavigateToDepositService={() => {
-          setShowCustomerService(false);
-          setShowDepositService(true);
-        }}
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <CustomerServiceScreen 
+            lang={lang} 
+            onClose={() => {
+              setShowCustomerService(false);
+              setConsultationType(undefined); // 重置咨询类型
+            }} 
+            userInfo={userInfo}
+            consultationType={consultationType}
+            onNavigateToDepositService={() => {
+              setShowCustomerService(false);
+              setShowDepositService(true);
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
   
   // 如果显示出金申请页面
   if (showWithdrawalApplication) {
     return (
-      <WithdrawalApplicationScreen 
-        lang={lang} 
-        onClose={() => setShowWithdrawalApplication(false)} 
-        onSuccess={(withdrawalId) => {
-          setWithdrawalId(withdrawalId);
-          setShowWithdrawalSuccess(true);
-        }} 
-        userInfo={userInfo}
-        onNavigateToCustomerService={() => {
-          setShowWithdrawalApplication(false);
-          setShowCustomerService(true);
-        }}
-        onNavigateToAssetStatus={() => {
-          setShowWithdrawalApplication(false);
-          setShowAssetStatus(true);
-        }}
-        onNavigateToFundTransactions={() => {
-          setShowWithdrawalApplication(false);
-          setShowFundTransactions(true);
-        }}
-      />
+      <SafeAreaProvider>
+        <WithdrawalApplicationScreen 
+          lang={lang} 
+          onClose={() => setShowWithdrawalApplication(false)} 
+          onSuccess={(withdrawalId) => {
+            setWithdrawalId(withdrawalId);
+            setShowWithdrawalSuccess(true);
+          }} 
+          userInfo={userInfo}
+          onNavigateToCustomerService={() => {
+            setShowWithdrawalApplication(false);
+            setShowCustomerService(true);
+          }}
+          onNavigateToAssetStatus={() => {
+            setShowWithdrawalApplication(false);
+            setShowAssetStatus(true);
+          }}
+          onNavigateToFundTransactions={() => {
+            setShowWithdrawalApplication(false);
+            setShowFundTransactions(true);
+          }}
+        />
+      </SafeAreaProvider>
     );
   }
   
@@ -676,95 +764,109 @@ export default function App() {
   // 如果显示资金往来页面
   if (showFundTransactions) {
     return (
-      <FundTransactionsScreen 
-        lang={lang} 
-        userInfo={userInfo}
-        onClose={() => setShowFundTransactions(false)}
-        onNavigateToAssetStatus={() => {
-          setShowFundTransactions(false);
-          setShowAssetStatus(true);
-        }}
-        onNavigateToDepositService={() => {
-          setShowFundTransactions(false);
-          setShowDepositService(true);
-        }}
-        onNavigateToWithdrawalApplication={() => {
-          setShowFundTransactions(false);
-          setShowWithdrawalApplication(true);
-        }}
-      />
+      <SafeAreaProvider>
+        <FundTransactionsScreen 
+          lang={lang} 
+          userInfo={userInfo}
+          onClose={() => setShowFundTransactions(false)}
+          onNavigateToAssetStatus={() => {
+            setShowFundTransactions(false);
+            setShowAssetStatus(true);
+          }}
+          onNavigateToDepositService={() => {
+            setShowFundTransactions(false);
+            setShowDepositService(true);
+          }}
+          onNavigateToWithdrawalApplication={() => {
+            setShowFundTransactions(false);
+            setShowWithdrawalApplication(true);
+          }}
+        />
+      </SafeAreaProvider>
     );
   }
   
   // 如果显示申赎记录页面
   if (showSubscriptionRedemptionRecords) {
     return (
-      <SubscriptionRedemptionRecordsScreen 
-        lang={lang} 
-        userInfo={userInfo}
-        onClose={() => setShowSubscriptionRedemptionRecords(false)}
-        onNavigateToSubscriptionApplication={() => {
-          setShowSubscriptionRedemptionRecords(false);
-          setShowSubscriptionApplication(true);
-        }}
-        onNavigateToRedemptionApplication={(product) => {
-          setShowSubscriptionRedemptionRecords(false);
-          setRedemptionProduct(product);
-          setShowRedemptionApplication(true);
-        }}
-        onNavigateToContracts={() => {
-          setShowSubscriptionRedemptionRecords(false);
-          setShowContractSigning(true);
-        }}
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <SubscriptionRedemptionRecordsScreen 
+            lang={lang} 
+            userInfo={userInfo}
+            onClose={() => setShowSubscriptionRedemptionRecords(false)}
+            onNavigateToSubscriptionApplication={() => {
+              setShowSubscriptionRedemptionRecords(false);
+              setShowSubscriptionApplication(true);
+            }}
+            onNavigateToRedemptionApplication={(product) => {
+              setShowSubscriptionRedemptionRecords(false);
+              setRedemptionProduct(product);
+              setShowRedemptionApplication(true);
+            }}
+            onNavigateToContracts={() => {
+              setShowSubscriptionRedemptionRecords(false);
+              setShowContractSigning(true);
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   // 如果显示合同签订页面
   if (showContractSigning) {
     return (
-      <ContractSigningScreen 
-        lang={lang} 
-        userInfo={userInfo}
-        onClose={() => setShowContractSigning(false)}
-        onNavigateToSubscriptionApplication={() => {
-          setShowContractSigning(false);
-          setShowSubscriptionApplication(true);
-        }}
-        onNavigateToRedemptionApplication={(product) => {
-          setShowContractSigning(false);
-          setRedemptionProduct(product);
-          setShowRedemptionApplication(true);
-        }}
-        onNavigateToSubscriptionRedemptionRecords={() => {
-          setShowContractSigning(false);
-          setShowSubscriptionRedemptionRecords(true);
-        }}
-        onNavigateToContractDetail={(contract) => {
-          setSelectedContract(contract);
-          setShowContractDetail(true);
-        }}
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <ContractSigningScreen 
+            lang={lang} 
+            userInfo={userInfo}
+            onClose={() => setShowContractSigning(false)}
+            onNavigateToSubscriptionApplication={() => {
+              setShowContractSigning(false);
+              setShowSubscriptionApplication(true);
+            }}
+            onNavigateToRedemptionApplication={(product) => {
+              setShowContractSigning(false);
+              setRedemptionProduct(product);
+              setShowRedemptionApplication(true);
+            }}
+            onNavigateToSubscriptionRedemptionRecords={() => {
+              setShowContractSigning(false);
+              setShowSubscriptionRedemptionRecords(true);
+            }}
+            onNavigateToContractDetail={(contract) => {
+              setSelectedContract(contract);
+              setShowContractDetail(true);
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   // 如果显示合同详情页面
   if (showContractDetail && selectedContract) {
     return (
-      <ContractDetailScreen 
-        contract={selectedContract} 
-        lang={lang} 
-        userInfo={userInfo}
-        onClose={() => {
-          setShowContractDetail(false);
-          setSelectedContract(null);
-        }}
-        onSignSuccess={(contractId) => {
-          setShowContractDetail(false);
-          setSelectedContract(null);
-          // 可以添加刷新逻辑
-        }}
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <ContractDetailScreen 
+            contract={selectedContract} 
+            lang={lang} 
+            userInfo={userInfo}
+            onClose={() => {
+              setShowContractDetail(false);
+              setSelectedContract(null);
+            }}
+            onSignSuccess={(contractId) => {
+              setShowContractDetail(false);
+              setSelectedContract(null);
+              // 可以添加刷新逻辑
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
@@ -827,12 +929,16 @@ export default function App() {
   // 如果显示消息中心页面
   if (showMessageCenter) {
     return (
-      <MessageCenterScreen 
-        lang={lang} 
-        userInfo={userInfo}
-        onClose={() => setShowMessageCenter(false)}
-        initialCategory={messageCenterCategory}
-      />
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <MessageCenterScreen 
+            lang={lang} 
+            userInfo={userInfo}
+            onClose={() => setShowMessageCenter(false)}
+            initialCategory={messageCenterCategory}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
   
@@ -943,11 +1049,110 @@ export default function App() {
       />
     );
   }
+
+  // 如果显示基金公司产品管理页面
+  if (showFundCompanyProducts) {
+    return (
+      <SafeAreaProvider>
+        <FundCompanyProductsScreen 
+          lang={lang}
+          userInfo={userInfo}
+          onClose={() => setShowFundCompanyProducts(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示基金公司客户对话页面
+  if (showFundCompanyChat) {
+    return (
+      <SafeAreaProvider>
+        <FundCompanyChatScreen 
+          lang={lang}
+          userInfo={userInfo}
+          onClose={() => setShowFundCompanyChat(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示基金公司公众号管理页面
+  if (showFundCompanyOfficialAccount) {
+    return (
+      <SafeAreaProvider>
+        <FundCompanyOfficialAccountScreen 
+          lang={lang}
+          userInfo={userInfo}
+          onClose={() => setShowFundCompanyOfficialAccount(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示基金公司管理页面
+  if (showFundCompanyManagement) {
+    return (
+      <SafeAreaProvider>
+        <FundCompanyManagementScreen 
+          userInfo={userInfo}
+          onBack={() => setShowFundCompanyManagement(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示客户列表页面
+  if (showCustomerList) {
+    return (
+      <SafeAreaProvider>
+        <CustomerListScreen 
+          userInfo={userInfo}
+          onBack={() => setShowCustomerList(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示合伙人列表页面
+  if (showPartnerList) {
+    return (
+      <SafeAreaProvider>
+        <PartnerListScreen 
+          userInfo={userInfo}
+          onBack={() => setShowPartnerList(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示基金管理员列表页面
+  if (showFundManagerList) {
+    return (
+      <SafeAreaProvider>
+        <FundManagerListScreen 
+          userInfo={userInfo}
+          onBack={() => setShowFundManagerList(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // 如果显示客服列表页面
+  if (showCustomerServiceList) {
+    return (
+      <SafeAreaProvider>
+        <CustomerServiceListScreen 
+          userInfo={userInfo}
+          onBack={() => setShowCustomerServiceList(false)}
+        />
+      </SafeAreaProvider>
+    );
+  }
   
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent" />
         {/* 主内容区域 */}
         <View style={styles.content}>
         {tab === 'home' && <PortfolioScreen demo={isDemo} lang={lang} userInfo={userInfo} unreadMessages={unreadMessages} appVersion={appVersion} onInsiderArticlePress={(article) => {
@@ -1003,6 +1208,21 @@ export default function App() {
                 break;
               case 'version-switch':
                 setShowVersionSwitch(true);
+                break;
+              case 'account-info':
+                setShowAccountInfo(true);
+                break;
+              case 'interface-settings':
+                setShowInterfaceSettings(true);
+                break;
+              case 'help':
+                setShowHelpCenter(true);
+                break;
+              case 'about':
+                setShowAboutUs(true);
+                break;
+              case 'feedback':
+                setShowFeedback(true);
                 break;
               // 其他屏幕可以在这里添加导航逻辑
               default:
@@ -1145,6 +1365,15 @@ export default function App() {
               // 清除其他界面状态
               setShowCareMode(false)
               setShowVersionSwitch(false)
+              // 清除基金公司相关状态
+              setShowFundCompanyProducts(false)
+              setShowFundCompanyChat(false)
+              setShowFundCompanyOfficialAccount(false)
+              setShowFundCompanyManagement(false)
+              setShowCustomerList(false)
+              setShowPartnerList(false)
+              setShowFundManagerList(false)
+              setShowCustomerServiceList(false)
 
             }} 
             onEditAccountInfo={() => setShowAccountInfo(true)}
@@ -1162,73 +1391,101 @@ export default function App() {
               setShowMessageCenter(true);
             }} 
             onNavigateToApplicationProcessing={() => alert('申请办理功能开发中')} 
-            onNavigateToMyCustomers={() => alert('我的客户功能开发中')}
+            onNavigateToMyCustomers={() => setShowCustomerList(true)}
             onNavigateToSystemSettings={() => setShowSystemSettings(true)}
             onNavigateToVersionSwitch={() => setShowVersionSwitch(true)}
             onNavigateToHelpCenter={() => setShowHelpCenter(true)}
             onNavigateToSecurityCenter={() => setShowSecurityCenter(true)}
             onNavigateToAboutUs={() => setShowAboutUs(true)}
+            onNavigateToFundCompanyProducts={() => setShowFundCompanyProducts(true)}
+            onNavigateToFundCompanyChat={() => setShowFundCompanyChat(true)}
+            onNavigateToFundCompanyOfficialAccount={() => setShowFundCompanyOfficialAccount(true)}
+            onNavigateToFundCompanyManagement={() => setShowFundCompanyManagement(true)}
+            onNavigateToPartnerList={() => setShowPartnerList(true)}
+            onNavigateToFundManagerList={() => setShowFundManagerList(true)}
+            onNavigateToCustomerServiceList={() => setShowCustomerServiceList(true)}
           />
         )}
       </View>
       
       {/* 底部导航栏 */}
       <View style={styles.bottomNav}>
-        <Pressable 
-          style={[styles.navItem, tab === 'home' && styles.activeNavItem]} 
-          onPress={() => setTab('home')}
-        >
-          <Ionicons 
-            name="home-outline" 
-            size={24} 
-            color={tab === 'home' ? '#4a90e2' : '#999'} 
-          />
-          <Text style={[styles.navText, tab === 'home' && styles.activeNavText]}>{t.home}</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.navItem, tab === 'products' && styles.activeNavItem]} 
-          onPress={() => setTab('products')}
-        >
-          <Ionicons 
-            name="briefcase-outline" 
-            size={24} 
-            color={tab === 'products' ? '#4a90e2' : '#999'} 
-          />
-          <Text style={[styles.navText, tab === 'products' && styles.activeNavText]}>{t.products}</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.navItem, tab === 'trades' && styles.activeNavItem]} 
-          onPress={() => setTab('trades')}
-        >
-          <Ionicons 
-            name="swap-horizontal-outline" 
-            size={24} 
-            color={tab === 'trades' ? '#4a90e2' : '#999'} 
-          />
-          <Text style={[styles.navText, tab === 'trades' && styles.activeNavText]}>{t.trades}</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.navItem, tab === 'insider' && styles.activeNavItem]} 
-          onPress={() => setTab('insider')}
-        >
-          <Ionicons 
-            name="newspaper-outline" 
-            size={24} 
-            color={tab === 'insider' ? '#4a90e2' : '#999'} 
-          />
-          <Text style={[styles.navText, tab === 'insider' && styles.activeNavText]}>{t.insider}</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.navItem, tab === 'profile' && styles.activeNavItem]} 
-          onPress={() => setTab('profile')}
-        >
-          <Ionicons 
-            name="person-outline" 
-            size={24} 
-            color={tab === 'profile' ? '#4a90e2' : '#999'} 
-          />
-          <Text style={[styles.navText, tab === 'profile' && styles.activeNavText]}>{t.profile}</Text>
-        </Pressable>
+        <LinearGradient
+          colors={['rgba(255,255,255,0)', THEME.cardBg]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.navContent}>
+          <Pressable 
+            style={[styles.navItem, tab === 'home' && styles.activeNavItem]} 
+            onPress={() => setTab('home')}
+          >
+            <View style={[styles.navIconContainer, tab === 'home' && styles.activeNavIconContainer]}>
+              <Ionicons 
+                name={tab === 'home' ? 'home' : 'home-outline'} 
+                size={22} 
+                color={tab === 'home' ? THEME.primary : THEME.textMuted} 
+              />
+            </View>
+            <Text style={[styles.navText, tab === 'home' && styles.activeNavText]}>{t.home}</Text>
+            {tab === 'home' && <View style={styles.activeIndicator} />}
+          </Pressable>
+          <Pressable 
+            style={[styles.navItem, tab === 'products' && styles.activeNavItem]} 
+            onPress={() => setTab('products')}
+          >
+            <View style={[styles.navIconContainer, tab === 'products' && styles.activeNavIconContainer]}>
+              <Ionicons 
+                name={tab === 'products' ? 'briefcase' : 'briefcase-outline'} 
+                size={22} 
+                color={tab === 'products' ? THEME.primary : THEME.textMuted} 
+              />
+            </View>
+            <Text style={[styles.navText, tab === 'products' && styles.activeNavText]}>{t.products}</Text>
+            {tab === 'products' && <View style={styles.activeIndicator} />}
+          </Pressable>
+          <Pressable 
+            style={[styles.navItem, tab === 'trades' && styles.activeNavItem]} 
+            onPress={() => setTab('trades')}
+          >
+            <View style={[styles.navIconContainer, tab === 'trades' && styles.activeNavIconContainer]}>
+              <Ionicons 
+                name={tab === 'trades' ? 'swap-horizontal' : 'swap-horizontal-outline'} 
+                size={22} 
+                color={tab === 'trades' ? THEME.primary : THEME.textMuted} 
+              />
+            </View>
+            <Text style={[styles.navText, tab === 'trades' && styles.activeNavText]}>{t.trades}</Text>
+            {tab === 'trades' && <View style={styles.activeIndicator} />}
+          </Pressable>
+          <Pressable 
+            style={[styles.navItem, tab === 'insider' && styles.activeNavItem]} 
+            onPress={() => setTab('insider')}
+          >
+            <View style={[styles.navIconContainer, tab === 'insider' && styles.activeNavIconContainer]}>
+              <Ionicons 
+                name={tab === 'insider' ? 'newspaper' : 'newspaper-outline'} 
+                size={22} 
+                color={tab === 'insider' ? THEME.primary : THEME.textMuted} 
+              />
+            </View>
+            <Text style={[styles.navText, tab === 'insider' && styles.activeNavText]}>{t.insider}</Text>
+            {tab === 'insider' && <View style={styles.activeIndicator} />}
+          </Pressable>
+          <Pressable 
+            style={[styles.navItem, tab === 'profile' && styles.activeNavItem]} 
+            onPress={() => setTab('profile')}
+          >
+            <View style={[styles.navIconContainer, tab === 'profile' && styles.activeNavIconContainer]}>
+              <Ionicons 
+                name={tab === 'profile' ? 'person' : 'person-outline'} 
+                size={22} 
+                color={tab === 'profile' ? THEME.primary : THEME.textMuted} 
+              />
+            </View>
+            <Text style={[styles.navText, tab === 'profile' && styles.activeNavText]}>{t.profile}</Text>
+            {tab === 'profile' && <View style={styles.activeIndicator} />}
+          </Pressable>
+        </View>
       </View>
       </View>
     </SafeAreaProvider>
@@ -1238,51 +1495,69 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5', // 淡浅灰色
+    backgroundColor: THEME.background,
   },
   content: {
     flex: 1,
-    backgroundColor: '#f0f2f5', // 淡浅灰色
+    backgroundColor: THEME.background,
   },
   bottomNav: {
+    backgroundColor: THEME.cardBg,
+    borderTopLeftRadius: THEME.radius.lg,
+    borderTopRightRadius: THEME.radius.lg,
+    ...THEME.shadow.lg,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  navContent: {
     flexDirection: 'row',
-    backgroundColor: '#333', // 灰黑色底部导航
-    borderTopWidth: 1,
-    borderTopColor: '#222',
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingTop: 8,
+    paddingHorizontal: 8,
   },
   navItem: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  navIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: THEME.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  activeNavIconContainer: {
+    backgroundColor: 'rgba(26, 78, 162, 0.1)',
   },
   activeNavItem: {
-    borderTopWidth: 2,
-    borderTopColor: '#4a90e2',
+    // 选中状态的额外样式
   },
   navText: {
-    color: '#999',
-    fontSize: 12,
+    color: THEME.textMuted,
+    fontSize: 11,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 2,
   },
   activeNavText: {
-    color: '#4a90e2',
+    color: THEME.primary,
     fontWeight: '600',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: 4,
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: THEME.primary,
   },
   // 添加顶部导航栏样式
   topNav: {
-    backgroundColor: '#333', // 灰黑色顶部导航
-    paddingHorizontal: 12, // 缩小左右缝隙
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
     paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',

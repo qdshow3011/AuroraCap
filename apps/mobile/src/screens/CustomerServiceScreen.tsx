@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Image, TouchableOpacity, TouchableWithoutFeedback, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Image, TouchableOpacity, TouchableWithoutFeedback, Modal, Alert, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import EmojiSelector from 'react-native-emoji-selector';
 import { Audio } from 'expo-av';
@@ -1063,25 +1065,30 @@ export default function CustomerServiceScreen({ lang = 'zh', onClose, userInfo, 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StatusBar barStyle="light-content" backgroundColor="#1A4EA2" />
+      
       {/* 顶部导航栏 */}
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>←</Text>
-        </Pressable>
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        style={styles.header}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={onClose}>
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{serviceInfo?.name || t.serviceName}</Text>
-          <Text style={styles.headerSubtitle}>在线</Text>
+          <View style={styles.onlineIndicator}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.headerSubtitle}>在线</Text>
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          {/* 右侧功能按钮 - 更多 */}
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setShowTopMoreMenu(!showTopMoreMenu)}
-          >
-            <Text style={styles.headerButtonText}>⋯</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <TouchableOpacity 
+          style={styles.headerButton}
+          onPress={() => setShowTopMoreMenu(!showTopMoreMenu)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </LinearGradient>
 
       {/* 右上角更多菜单 */}
       {showTopMoreMenu && (
@@ -1513,9 +1520,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#d1d1d1',
     height: 56,
   },
   backButton: {
@@ -1523,11 +1527,8 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#000000',
-    fontWeight: '300',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   headerCenter: {
     flex: 1,
@@ -1537,27 +1538,32 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '500',
-    color: '#000000',
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  onlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 6,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#666666',
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: 'rgba(255,255,255,0.8)',
   },
   headerButton: {
-    width: 80,
+    width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerButtonText: {
-    fontSize: 20,
-    color: '#000000',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   // 交流历史按钮样式
   historyButtonText: {

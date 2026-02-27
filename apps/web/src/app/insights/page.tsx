@@ -201,9 +201,34 @@ export default function InsightsList() {
               onClick={() => handleInsightClick(insight.id)}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
+              {/* Cover Image */}
+              {insight.cover_image && (
+                <div className="relative h-48 md:h-64 overflow-hidden">
+                  <img
+                    src={insight.cover_image}
+                    alt={insight.title}
+                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                  />
+                </div>
+              )}
+              
               <div className="p-8 md:p-10">
                 {/* Category and Date */}
                 <div className="flex flex-wrap items-center gap-4 mb-5">
+                  {/* Account Info */}
+                  {insight.account && (
+                    <div className="flex items-center gap-2 text-sm text-[var(--primary)] font-medium">
+                      {insight.account.avatar && (
+                        <img
+                          src={insight.account.avatar}
+                          alt={insight.account.name}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                      )}
+                      {insight.account.name}
+                    </div>
+                  )}
+                  
                   {insight.category && (
                     <span className="inline-block px-4 py-1.5 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--primary-light)]/10 text-[var(--primary)] text-xs font-semibold rounded-full">
                       {insight.category}

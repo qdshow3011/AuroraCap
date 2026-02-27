@@ -326,7 +326,7 @@ const CustomerServiceManagement: React.FC = () => {
       // 格式化会话数据
       const formattedSessions: ChatSession[] = sessionsArray
         // 过滤掉agent_id为空的会话
-        .filter(session => session?.agent_id)
+        .filter((session): session is any => typeof session === 'object' && session !== null && 'agent_id' in session && session?.agent_id)
         .map(session => {
           // 确保即使关联的用户信息不存在，也返回带有空ID的对象，而不是undefined
           const customer = {
@@ -566,9 +566,9 @@ const CustomerServiceManagement: React.FC = () => {
       title: '姓名',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: Waiter) => (
+      render: (_text: string, record: Waiter) => (
         <div>
-          <div>{text}</div>
+          <div>{record.name}</div>
           <div style={{ fontSize: 12, color: '#999' }}>{record.email}</div>
         </div>
       )
@@ -594,7 +594,7 @@ const CustomerServiceManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: string, record: Waiter) => (
+      render: (_text: string, record: Waiter) => (
         <Space size="middle">
           <Button 
             type="primary" 
@@ -660,7 +660,7 @@ const CustomerServiceManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: string, record: CustomerWaiterSessionGroup) => (
+      render: (_text: string, record: CustomerWaiterSessionGroup) => (
         <Space size="middle">
           <Button 
             type="default" 

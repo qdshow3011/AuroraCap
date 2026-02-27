@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     // Build the query
-    let query = supabase.from('internal_references').select('*', { count: 'exact' });
+    let query = supabase.from('internal_references').select('*, account:account_id(*)');
+
 
     // Apply filters if provided
     if (category) {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { View, Text, Pressable, Animated, Dimensions, ScrollView, Image } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import React from 'react'
 
 const AuroraLogo = ({ size = 48, color = '#FF0000' }) => {
@@ -32,6 +34,7 @@ export default function SplashScreen({ lang, onLangChange, onLogin, onRegister }
   const [index, setIndex] = useState(0)
   const { width, height } = Dimensions.get('window')
   const translateX = slide.interpolate({ inputRange: [0, 1], outputRange: [-(width * 0.1), 0] })
+  const insets = useSafeAreaInsets()
 
   // 定义翻译文本 - 使用useMemo确保在useEffect访问前初始化
   const t = useMemo(() => {
@@ -85,8 +88,9 @@ export default function SplashScreen({ lang, onLangChange, onLogin, onRegister }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <StatusBar style="light" />
       {/* 顶部广告轮播区域 */}
-      <View style={{ flex: 1, maxHeight: height * 0.4 }}>
+      <View style={{ flex: 1, maxHeight: height * 0.4, paddingTop: insets.top }}>
         <ScrollView
           ref={scrollViewRef}
           horizontal

@@ -1,5 +1,6 @@
 import { supabaseClient } from '../main';
 import axios from 'axios';
+import yahooFinance from 'yahoo-finance2';
 
 interface YahooIndexData {
   symbol: string;
@@ -80,30 +81,28 @@ class YahooFinanceService {
     try {
       console.log(`正在获取指数 ${symbol} 的数据...`);
 
-      const response = await this.retry(async () => {
-        return await Promise.race([
-          axios.get(`https://query1.finance.yahoo.com/v6/finance/quote`, {
-            params: {
-              symbols: symbol,
-              fields: 'regularMarketPrice,previousClose,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,regularMarketTime,longName,shortName'
-            },
-            timeout: 15000,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('请求超时')), 15000)
-          )
-        ]);
+      const quoteResponse = await this.retry(async () => {
+        try {
+          const result = await yahooFinance.quote(symbol);
+          console.log(`获取指数 ${symbol} 数据成功，响应类型:`, typeof result);
+          console.log(`获取指数 ${symbol} 数据成功，响应内容:`, result);
+          return result;
+        } catch (error: any) {
+          console.error(`获取指数 ${symbol} 数据失败 (内部):`, error.message);
+          console.error(`获取指数 ${symbol} 数据失败 (内部):`, error);
+          throw error;
+        }
       }, 2, 3000);
 
-      console.log(`指数 ${symbol} API 响应:`, JSON.stringify(response.data, null, 2));
-
-      const quoteResponse = response.data.quoteResponse?.result?.[0];
+      console.log(`指数 ${symbol} API 响应:`, JSON.stringify(quoteResponse, null, 2));
 
       if (!quoteResponse) {
-        console.error(`指数 ${symbol} 返回数据格式不正确，响应数据:`, response.data);
+        console.error(`指数 ${symbol} 返回数据格式不正确: 响应为空`);
+        return null;
+      }
+
+      if (typeof quoteResponse !== 'object') {
+        console.error(`指数 ${symbol} 返回数据格式不正确: 响应不是对象`);
         return null;
       }
 
@@ -111,6 +110,13 @@ class YahooFinanceService {
       const previousClose = quoteResponse.previousClose || 0;
       const change = quoteResponse.regularMarketChange || 0;
       const changePercent = quoteResponse.regularMarketChangePercent || 0;
+
+      console.log(`指数 ${symbol} 数据:`, {
+        regularMarketPrice: quoteResponse.regularMarketPrice,
+        previousClose: quoteResponse.previousClose,
+        regularMarketChange: quoteResponse.regularMarketChange,
+        regularMarketChangePercent: quoteResponse.regularMarketChangePercent
+      });
 
       const indexData: YahooIndexData = {
         symbol: symbol,
@@ -135,10 +141,7 @@ class YahooFinanceService {
       return indexData;
     } catch (error: any) {
       console.error(`获取指数 ${symbol} 数据失败:`, error.message);
-      if (error.response) {
-        console.error(`API 响应状态: ${error.response.status}`);
-        console.error(`API 响应数据:`, error.response.data);
-      }
+      console.error(`获取指数 ${symbol} 数据失败:`, error);
       return null;
     }
   }
@@ -186,43 +189,43 @@ class YahooFinanceService {
     console.log(`待同步指数数量: ${this.INDICES_TO_FETCH.length}`);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      console.log(`调用 API URL: ${apiUrl}/yahoo-sync`);
-      
-      const response = await axios.get(`${apiUrl}/yahoo-sync`, {
-        timeout: 60000
-      });
+      let processedCount = 0;
+      const syncedIndices: string[] = [];
 
-      console.log(`API 响应状态: ${response.status}`);
-      console.log(`API 响应数据:`, response.data);
-
-      if (response.status !== 200) {
-        throw new Error(`API 请求失败，状态码: ${response.status}`);
+      for (const symbol of this.INDICES_TO_FETCH) {
+        console.log(`正在同步指数: ${symbol}`);
+        
+        const indexData = await this.fetchIndexData(symbol);
+        
+        if (indexData) {
+          const saved = await this.saveIndexData(indexData);
+          
+          if (saved) {
+            processedCount++;
+            syncedIndices.push(symbol);
+            console.log(`指数 ${symbol} 同步成功`);
+          } else {
+            console.error(`指数 ${symbol} 保存失败`);
+          }
+        } else {
+          console.error(`指数 ${symbol} 获取失败`);
+        }
       }
 
-      const result = response.data;
-
       console.log(`=== Yahoo Finance 指数数据同步完成 ===`);
-      console.log(`成功获取: ${result.processedIndices} 个指数`);
-      console.log(`数据源: ${result.dataSource}`);
+      console.log(`成功获取: ${processedCount} 个指数`);
+      console.log(`数据源: yahoo-finance`);
 
       return {
-        success: true,
-        processedIndices: result.processedIndices,
-        indices: result.indices,
-        dataSource: result.dataSource === 'yahoo-finance2' ? 'yahoo-finance' : 'manual',
-        message: result.message
+        success: processedCount > 0,
+        processedIndices: processedCount,
+        indices: syncedIndices,
+        dataSource: 'yahoo-finance',
+        message: `成功同步 ${processedCount} 个指数数据`
       };
     } catch (error: any) {
       console.error('Yahoo Finance 指数数据同步失败:', error);
       console.error('错误详情:', error.message);
-      if (error.response) {
-        console.error('响应状态:', error.response.status);
-        console.error('响应数据:', error.response.data);
-      }
-      if (error.request) {
-        console.error('请求已发送但没有收到响应');
-      }
       return {
         success: false,
         processedIndices: 0,

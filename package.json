@@ -1,7 +1,11 @@
 {
   "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
     "@supabase/supabase-js": "^2.89.0",
     "axios": "^1.13.2",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "expo-linear-gradient": "^15.0.8",
+    "react-dom": "19.1.0",
+    "react-native-web": "^0.21.0"
   }
 }

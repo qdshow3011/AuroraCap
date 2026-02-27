@@ -76,7 +76,7 @@ const CustomerManagement: React.FC = () => {
       const userIdToName = new Map(allUsers?.map(user => [user.id, user.name]) || []);
       
       // 创建用户ID到邀请码的映射
-      const userIdToInviteCode = new Map(users?.map(user => [user.id, user.invite_code]) || []);
+      // const userIdToInviteCode = new Map(users?.map(user => [user.id, user.invite_code]) || []);
       
       // 创建用户ID到直接推荐人ID的映射
       const userIdToDirectInviterId = new Map<string, string>();
@@ -159,26 +159,33 @@ const CustomerManagement: React.FC = () => {
     try {
       const values = await form.validateFields();
       
+      // 处理空值，将空字符串转换为null
+      const processedValues = {
+        ...values,
+        id_number: values.id_number?.trim() || null,
+        invite_code: values.invite_code?.trim() || null,
+      };
+      
       if (selectedCustomer) {
           // 更新客户信息
           const { error } = await supabaseClient
             .from('users')
-            .update(values)
+            .update(processedValues)
             .eq('id', selectedCustomer.id);
         if (error) throw error;
       } else {
         // 创建新客户
         const { error } = await supabaseClient
           .from('users')
-          .insert(values);
+          .insert(processedValues);
         if (error) throw error;
       }
       
       setIsModalVisible(false);
       fetchCustomers();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save customer:', err);
-      setError('保存客户信息失败，请稍后重试');
+      setError(err.message || '保存客户信息失败，请稍后重试');
     }
   };
 
@@ -257,8 +264,8 @@ const CustomerManagement: React.FC = () => {
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => (
-        <Tag color={role === 'admin' ? 'red' : role === 'partner' ? 'blue' : 'green'}>
-          {role === 'admin' ? '管理员' : role === 'partner' ? '合伙人' : role === 'customer' ? '客户' : role === 'waiter' ? '服务员' : role}
+        <Tag color={role === 'admin' ? 'red' : role === 'partner' ? 'blue' : role === 'fund_company' ? 'purple' : role === 'waiter' ? 'orange' : 'green'}>
+          {role === 'admin' ? '管理员' : role === 'partner' ? '合伙人' : role === 'fund_company' ? '基金管理员' : role === 'waiter' ? '服务员' : role === 'customer' ? '客户' : role}
         </Tag>
       ),
     },
@@ -368,8 +375,9 @@ const CustomerManagement: React.FC = () => {
           <Form.Item
             name="id_number"
             label="身份证号/护照号码"
+            rules={[{ required: false }]}
           >
-            <Input placeholder="请输入身份证号或护照号码" />
+            <Input placeholder="请输入身份证号或护照号码（选填）" allowClear />
           </Form.Item>
           <Form.Item
             name="status"
@@ -389,8 +397,9 @@ const CustomerManagement: React.FC = () => {
             <Select placeholder="请选择角色">
               <Option value="admin">管理员</Option>
               <Option value="partner">合伙人</Option>
-              <Option value="customer">客户</Option>
+              <Option value="fund_company">基金管理员</Option>
               <Option value="waiter">服务员</Option>
+              <Option value="customer">客户</Option>
             </Select>
           </Form.Item>
         </Form>

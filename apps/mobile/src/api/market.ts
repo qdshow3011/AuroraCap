@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 // 金融API客户端
 export class MarketApiClient {
@@ -329,6 +330,58 @@ export async function getMarketCategories(lang: 'zh' | 'en' = 'zh') {
       'other': lang === 'zh' ? '其他' : 'Others'
     };
 
+    // 从数据库获取市场指数数据
+    if (supabase) {
+      const { data: indicesData, error } = await supabase
+        .from('yahoo_indices')
+        .select('*');
+
+      if (!error && indicesData && indicesData.length > 0) {
+        // 分类指数数据
+        const categorizedIndices: Record<string, any[]> = {
+          us: [],
+          cn: [],
+          hk: [],
+          other: []
+        };
+
+        // 根据指数代码分类
+        indicesData.forEach((index: any) => {
+          const symbol = index.symbol;
+          // 根据代码判断指数类型
+          if (symbol.includes('^GSPC') || symbol.includes('^DJI') || symbol.includes('^IXIC') || 
+              symbol.includes('NASDAQ') || symbol.includes('SPX') || symbol.includes('DJIA')) {
+            categorizedIndices.us.push(index);
+          } else if (symbol.includes('.SH') || symbol.includes('.SZ') || 
+                     symbol.includes('000001') || symbol.includes('399001') || symbol.includes('399006')) {
+            categorizedIndices.cn.push(index);
+          } else if (symbol.includes('HSI') || symbol.includes('HSTECH') || symbol.includes('HSCEI')) {
+            categorizedIndices.hk.push(index);
+          } else {
+            categorizedIndices.other.push(index);
+          }
+        });
+
+        // 构建分类数据
+        const categories = Object.entries(categorizedIndices).map(([type, indices]) => ({
+          id: type,
+          name: categoryNames[type] || type,
+          indices: indices.map((item, index) => ({
+            id: `${type}${index + 1}`,
+            name: item.name,
+            code: item.symbol,
+            value: parseFloat(item.price) || 0,
+            change: parseFloat(item.change) || 0,
+            changePercent: parseFloat(item.changePercent) || 0
+          }))
+        })).filter(category => category.indices.length > 0);
+
+        return categories;
+      }
+    }
+
+    // 如果数据库获取失败，使用默认数据
+    console.log('数据库获取失败，使用默认数据');
     const categories = await Promise.all(
       Object.entries(DEFAULT_INDICES).map(async ([type, symbols]) => {
         const indicesData = await marketApi.getMarketIndices(symbols);

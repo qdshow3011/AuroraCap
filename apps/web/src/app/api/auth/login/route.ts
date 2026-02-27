@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Try to find by phone first
     const { data: phoneUsers, error: phoneError } = await supabase
       .from('users')
-      .select('email, phone, id_number')
+      .select('email, phone, id_number, role, full_name')
       .eq('phone', loginId)
       .limit(1);
     
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       // If no phone match, try id_number
       const { data: idUsers, error: idError } = await supabase
         .from('users')
-        .select('email, phone, id_number')
+        .select('email, phone, id_number, role, full_name')
         .eq('id_number', loginId)
         .limit(1);
       
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           data: {
             phone: dbUser.phone,
             id_number: dbUser.id_number,
-            role: 'USER'
+            role: dbUser.role || 'USER'
           }
         }
       });
@@ -139,9 +139,9 @@ export async function POST(request: NextRequest) {
         user: {
           id: dbUser.email.split('@')[0], // Use email prefix as temporary ID
           email: dbUser.email,
-          first_name: '',
+          first_name: dbUser.full_name || '',
           last_name: '',
-          role: 'USER',
+          role: dbUser.role || 'USER',
           created_at: new Date().toISOString()
         },
         session: {

@@ -63,7 +63,7 @@ const App: React.FC<AppProps> = ({ user, onLogout }) => {
             onClick={() => setCollapsed(!collapsed)}
             style={{ fontSize: 18, color: '#fff', cursor: 'pointer' }}
           />
-          Aurora Fund Management Co., Ltd. 管理后台
+          Aurora Intelligent Fund 管理后台
         </div>
         <div>
           <Dropdown menu={{ items: menuItems }} placement="bottomRight">
@@ -72,7 +72,7 @@ const App: React.FC<AppProps> = ({ user, onLogout }) => {
               icon={<UserOutlined />}
               style={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}
             >
-              <span>{user?.role === 'admin' ? '管理员' : user?.role === 'waiter' ? '服务员' : user?.role === 'partner' ? '合伙人' : user?.role === 'customer' ? '客户' : user?.role}</span>
+              <span>{user?.role === 'admin' ? '管理员' : user?.role === 'waiter' ? '服务员' : user?.role === 'partner' ? '合伙人' : user?.role === 'customer' ? '客户' : user?.role === 'fund_company' ? '基金管理员' : user?.role}</span>
             </Button>
           </Dropdown>
         </div>

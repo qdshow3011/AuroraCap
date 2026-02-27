@@ -1,867 +1,463 @@
-import { useState, useEffect } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, Image, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Linking } from 'react-native'
-import { likeArticle, getArticleById } from '../api/articles'
-import { getArticleComments, createComment } from '../api/comments'
-import HTML from 'react-native-render-html'
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Share,
+  Alert,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import HTML from 'react-native-render-html';
+import { Dimensions } from 'react-native';
 
-// 条件导入PDF组件，只在非Web平台上加载
-let Pdf: any = null
-if (Platform.OS !== 'web') {
-  Pdf = require('react-native-pdf').default
-}
-
-// 用户名掩码函数：将前面的数字替换为"****"，只展示后面4位数字
-const maskUsername = (username: string): string => {
-  if (!username || username.length < 4) {
-    return '****' + username.slice(-4) || 'User'
-  }
-  return '****' + username.slice(-4)
-}
+const { width } = Dimensions.get('window');
 
 interface Article {
   id: string;
   title: string;
   content: string;
   cover_image?: string;
-  pdf_url?: string;
+  created_at: string;
+  updated_at?: string;
+  author?: string;
+  account_name?: string;
+  account_avatar?: string;
   read_count?: number;
   like_count?: number;
   comment_count?: number;
-  created_at: string;
-  published_at?: string;
-  wechat_official_accounts?: {
-    name: string;
-    avatar: string;
-  };
-  account_name?: string;
+  category?: string;
+  summary?: string;
 }
 
-export default function InsiderDetail({ article, onClose, lang = 'zh', userInfo, appVersion = 'standard' }: { 
-  article: Article; 
-  onClose?: () => void;
+interface InsiderDetailProps {
+  article: Article;
+  onClose: () => void;
   lang?: 'zh' | 'en';
-  userInfo?: any;
-  appVersion?: 'standard' | 'simple' | 'premium';
-}) {
-  // 根据版本获取字体大小
-  const getFontSizes = () => {
-    switch (appVersion) {
-      case 'simple': // 老人版
-        return {
-          title: 28,
-          content: 20,
-          accountName: 18,
-          metaInfo: 16,
-          commentsTitle: 20,
-          commentContent: 16,
-          input: 16
-        };
-      case 'premium': // 合伙人版
-        return {
-          title: 24,
-          content: 17,
-          accountName: 16,
-          metaInfo: 14,
-          commentsTitle: 18,
-          commentContent: 14,
-          input: 14
-        };
-      default: // 标准版
-        return {
-          title: 24,
-          content: 17,
-          accountName: 16,
-          metaInfo: 14,
-          commentsTitle: 18,
-          commentContent: 14,
-          input: 14
-        };
-    }
+}
+
+export default function InsiderDetail({ article, onClose, lang = 'zh' }: InsiderDetailProps) {
+  const insets = useSafeAreaInsets();
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(article.like_count || 0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const t = lang === 'zh' ? {
+    back: '返回',
+    share: '分享',
+    like: '点赞',
+    liked: '已赞',
+    comment: '评论',
+    read: '阅读',
+    author: '作者',
+    publishTime: '发布时间',
+    category: '分类',
+    relatedArticles: '相关文章',
+    loading: '加载中...',
+  } : {
+    back: 'Back',
+    share: 'Share',
+    like: 'Like',
+    liked: 'Liked',
+    comment: 'Comment',
+    read: 'Reads',
+    author: 'Author',
+    publishTime: 'Published',
+    category: 'Category',
+    relatedArticles: 'Related Articles',
+    loading: 'Loading...',
   };
 
-  const fontSizes = getFontSizes();
-
-  const [comments, setComments] = useState<Comment[]>([])
-  const [currentArticle, setArticle] = useState<Article>(article)
-  const [loading, setLoading] = useState(true)
-  const [commentLoading, setCommentLoading] = useState(false)
-  const [likeLoading, setLikeLoading] = useState(false)
-  const [commentText, setCommentText] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
-  const [showPdfModal, setShowPdfModal] = useState(false)
-
-  useEffect(() => {
-    fetchComments();
-    // 增加阅读计数
-    increaseReadCount();
-  }, [currentArticle.id]);
-
-  // 增加阅读计数
-  const increaseReadCount = async () => {
-    try {
-      console.log('Increasing read count for article:', currentArticle.id);
-      // 调用getArticleById API，它会自动增加阅读计数
-      const updatedArticle = await getArticleById(currentArticle.id);
-      console.log('Read count updated:', updatedArticle.read_count);
-      // 更新当前文章状态，包含最新的阅读计数
-      setArticle(updatedArticle);
-    } catch (error) {
-      console.error('Error increasing read count:', error);
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
-  const fetchComments = async () => {
-    try {
-      setLoading(true);
-      // 获取文章留言
-      const commentsData = await getArticleComments(currentArticle.id);
-      setComments(commentsData);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    } finally {
-      setLoading(false);
-    }
+  const getRelativeTime = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return lang === 'zh' ? '刚刚' : 'Just now';
+    if (diffMins < 60) return `${diffMins}${lang === 'zh' ? '分钟前' : ' mins ago'}`;
+    if (diffHours < 24) return `${diffHours}${lang === 'zh' ? '小时前' : ' hours ago'}`;
+    if (diffDays < 7) return `${diffDays}${lang === 'zh' ? '天前' : ' days ago'}`;
+    return formatDate(dateString);
   };
 
-  const handleLike = async () => {
-    if (!currentArticle) return;
+  const handleShare = async () => {
     try {
-      setLikeLoading(true);
-      console.log('Calling likeArticle API for article:', currentArticle.id);
-      console.log('User info for like:', userInfo);
-      const updatedArticle = await likeArticle(currentArticle.id, userInfo);
-      console.log('Like successful, updated article:', updatedArticle);
-      setArticle(updatedArticle);
-      // 显示点赞成功提示
-      setTimeout(() => {
-        alert(lang === 'zh' ? '点赞成功！' : 'Liked successfully!');
-      }, 100);
-    } catch (error) {
-      console.error('Error liking article:', error);
-      // 显示点赞失败提示
-      alert(lang === 'zh' ? '点赞失败，请稍后重试' : 'Failed to like, please try again later');
-    } finally {
-      setLikeLoading(false);
-    }
-  };
-
-  const handleSubmitComment = async () => {
-    if (!currentArticle || !commentText.trim()) return;
-    
-    // 检查用户登录状态
-    console.log('Comment submission attempt - userInfo:', userInfo);
-    console.log('Comment submission attempt - userInfo exists:', !!userInfo);
-    
-    if (!userInfo) {
-      alert(lang === 'zh' ? '请先登录后再发表评论' : 'Please log in first to comment');
-      return;
-    }
-    
-    try {
-      setSubmittingComment(true);
-      console.log('Calling createComment API with article_id:', currentArticle.id);
-      console.log('Comment content:', commentText.trim());
-      
-      // 调用真实的createComment API，传递userInfo作为备用
-      const newComment = await createComment({
-        article_id: currentArticle.id,
-        content: commentText.trim(),
-        userInfo: userInfo,
+      await Share.share({
+        message: `${article.title} - ${article.summary || ''}`,
+        title: article.title,
       });
-      
-      // 更新留言列表
-      setComments([...comments, {
-        ...newComment,
-        replies: [],
-      }]);
-      // 清空输入框
-      setCommentText('');
-      // 更新文章的评论数
-      if (currentArticle.comment_count !== undefined) {
-        setArticle({
-          ...currentArticle,
-          comment_count: currentArticle.comment_count + 1,
-        });
-      }
-      console.log('Comment submitted successfully:', newComment);
-      alert(lang === 'zh' ? '评论提交成功！' : 'Comment submitted successfully!');
-    } catch (error: any) {
-      console.error('Error submitting comment - message:', error.message);
-      console.error('Error submitting comment - stack:', error.stack);
-      console.error('Error submitting comment - full error:', error);
-      alert(lang === 'zh' ? `评论提交失败：${error.message || '请稍后重试'}` : `Failed to submit comment: ${error.message || 'please try again later'}`);
-    } finally {
-      setSubmittingComment(false);
+    } catch (error) {
+      console.error('分享失败:', error);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centerContainer]}>
-        <ActivityIndicator size="large" color="#576b95" />
-      </View>
-    );
-  }
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+  };
 
-  if (!currentArticle) {
-    return (
-      <View style={[styles.container, styles.centerContainer]}>
-        <Text style={styles.errorText}>
-          {lang === 'zh' ? '文章不存在' : 'Article not found'}
-        </Text>
-      </View>
-    );
-  }
+  const htmlStyles = {
+    body: {
+      fontSize: 16,
+      lineHeight: 28,
+      color: '#333',
+    },
+    p: {
+      marginBottom: 16,
+      lineHeight: 28,
+    },
+    h1: {
+      fontSize: 24,
+      fontWeight: '700',
+      marginBottom: 16,
+      color: '#333',
+    },
+    h2: {
+      fontSize: 20,
+      fontWeight: '600',
+      marginBottom: 12,
+      color: '#333',
+    },
+    h3: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginBottom: 10,
+      color: '#333',
+    },
+    img: {
+      width: '100%',
+      height: 200,
+      borderRadius: 12,
+      marginVertical: 12,
+    },
+    a: {
+      color: '#1A4EA2',
+      textDecorationLine: 'underline',
+    },
+  };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* 顶部导航栏 */}
-      <View style={styles.header}>
-        <Pressable onPress={onClose} style={styles.backButton}>
-          <Text style={styles.backText}>←</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      {/* 渐变头部 */}
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        style={[styles.header, { paddingTop: insets.top > 0 ? insets.top : 16 }]}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={onClose}>
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
           {lang === 'zh' ? '文章详情' : 'Article Detail'}
         </Text>
-        <View style={styles.headerRight} />
-      </View>
+        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+          <Ionicons name="share-outline" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </LinearGradient>
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* 文章主体 */}
-        <View style={styles.articleContainer}>
-          {/* 公众号信息 */}
-          {currentArticle.wechat_official_accounts && (
-            <View style={styles.accountInfo}>
-              <View style={styles.avatarContainer}>
-                {currentArticle.wechat_official_accounts.avatar ? (
-                  <Image 
-                    source={{ uri: currentArticle.wechat_official_accounts.avatar }} 
-                    style={styles.avatar} 
-                  />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 文章头部信息卡片 */}
+        <View style={styles.articleHeaderCard}>
+          {article.cover_image && (
+            <Image source={{ uri: article.cover_image }} style={styles.coverImage} />
+          )}
+          
+          <View style={styles.titleSection}>
+            <Text style={styles.articleTitle}>{article.title}</Text>
+            
+            {/* 作者信息 */}
+            <View style={styles.authorSection}>
+              <View style={styles.authorInfo}>
+                {article.account_avatar ? (
+                  <Image source={{ uri: article.account_avatar }} style={styles.authorAvatar} />
                 ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {currentArticle.wechat_official_accounts.name.charAt(0)}
+                  <View style={[styles.authorAvatar, styles.authorAvatarPlaceholder]}>
+                    <Text style={styles.authorAvatarText}>
+                      {article.account_name?.charAt(0) || 'A'}
                     </Text>
                   </View>
                 )}
-              </View>
-              <Text style={[styles.accountName, { fontSize: fontSizes.accountName }]}>
-                {currentArticle.wechat_official_accounts.name}
-              </Text>
-            </View>
-          )}
-
-          {/* 标题 */}
-          <Text style={[styles.title, { fontSize: fontSizes.title }]}>
-            {currentArticle.title}
-          </Text>
-
-          {/* PDF阅读按钮 */}
-          {currentArticle.pdf_url && (
-            <Pressable
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  // 在Web平台上，在新标签页中打开PDF
-                  Linking.openURL(currentArticle.pdf_url)
-                } else {
-                  // 在移动平台上，显示PDF模态窗口
-                  setShowPdfModal(true)
-                }
-              }}
-              style={styles.pdfButton}
-            >
-              <Text style={styles.pdfButtonIcon}>📄</Text>
-              <Text style={styles.pdfButtonText}>
-                {lang === 'zh' ? '打开报告PDF' : 'Open Report PDF'}
-              </Text>
-            </Pressable>
-          )}
-
-          {/* 封面图片 */}
-          {currentArticle.cover_image && (
-            <View style={styles.coverImageContainer}>
-              <Image source={{ uri: currentArticle.cover_image }} style={styles.coverImage} />
-            </View>
-          )}
-
-          {/* 作者和日期信息 */}
-          <View style={styles.metaInfo}>
-            <Text style={[styles.dateText, { fontSize: fontSizes.metaInfo }]}>
-              {new Date(currentArticle.published_at || currentArticle.created_at).toLocaleDateString()}
-            </Text>
-            <View style={styles.statsContainer}>
-              {currentArticle.read_count !== undefined && (
-                <Text style={[styles.statText, { fontSize: fontSizes.metaInfo }]}>
-                  {currentArticle.read_count} 阅读
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {/* 分隔线 */}
-          <View style={styles.divider} />
-
-          {/* 文章内容 */}
-          <View style={styles.contentContainer}>
-            <HTML
-              source={{ html: currentArticle.content }}
-              contentWidth={Platform.OS === 'web' ? 600 : undefined}
-              tagsStyles={{
-                p: {
-                  marginBottom: 12,
-                  lineHeight: fontSizes.content * 1.6,
-                  fontSize: fontSizes.content,
-                },
-                strong: {
-                  fontWeight: 'bold',
-                  fontSize: fontSizes.content,
-                },
-                em: {
-                  fontStyle: 'italic',
-                  fontSize: fontSizes.content,
-                },
-                h1: {
-                  fontSize: fontSizes.title + 2,
-                  fontWeight: 'bold',
-                  marginBottom: 16,
-                  marginTop: 24,
-                },
-                h2: {
-                  fontSize: fontSizes.title - 2,
-                  fontWeight: 'bold',
-                  marginBottom: 12,
-                  marginTop: 20,
-                },
-                h3: {
-                  fontSize: fontSizes.title - 4,
-                  fontWeight: 'bold',
-                  marginBottom: 8,
-                  marginTop: 16,
-                },
-                ul: {
-                  marginBottom: 12,
-                  paddingLeft: 20,
-                },
-                ol: {
-                  marginBottom: 12,
-                  paddingLeft: 20,
-                },
-                li: {
-                  marginBottom: 4,
-                  fontSize: fontSizes.content,
-                },
-                br: {
-                  marginBottom: 8,
-                },
-              }}
-              style={[styles.content, { fontSize: fontSizes.content, lineHeight: fontSizes.content * 1.6 }]}
-            />
-          </View>
-
-          {/* 点赞和评论区域 */}
-          <View style={styles.interactionContainer}>
-            <Pressable 
-              onPress={handleLike} 
-              disabled={likeLoading}
-              style={({ pressed }) => [
-                styles.interactionButton,
-                pressed && styles.interactionButtonPressed
-              ]}
-            >
-              {likeLoading ? (
-                <ActivityIndicator size="small" color="#576b95" />
-              ) : (
-                <>
-                  <Text style={styles.interactionIcon}>❤</Text>
-                  <Text style={styles.interactionText}>
-                    {currentArticle.like_count || 0} {lang === 'zh' ? '点赞' : 'Likes'}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable style={styles.interactionButton}>
-              <Text style={styles.interactionIcon}>💬</Text>
-              <Text style={styles.interactionText}>
-                {currentArticle.comment_count || 0} {lang === 'zh' ? '留言' : 'Comments'}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* 留言区域 */}
-          <View style={styles.commentsContainer}>
-            <Text style={[styles.commentsTitle, { fontSize: fontSizes.commentsTitle }]}>
-              {lang === 'zh' ? '留言' : 'Comments'}
-            </Text>
-            {comments.length === 0 ? (
-              <Text style={[styles.noCommentsText, { fontSize: fontSizes.commentContent }]}>
-                {lang === 'zh' ? '暂无留言，快来抢沙发吧！' : 'No comments yet, be the first to comment!'}
-              </Text>
-            ) : (
-              comments.map((comment) => (
-                <View key={comment.id} style={styles.commentItem}>
-                  <View style={styles.commentHeader}>
-                    <View style={styles.commentAvatar}>
-                      <Text style={[styles.commentAvatarText, { fontSize: fontSizes.commentContent * 0.8 }]}>
-                        {comment.users?.email.charAt(0) || 'U'}
-                      </Text>
-                    </View>
-                    <View style={styles.commentMeta}>
-                      <Text style={[styles.commentAuthor, { fontSize: fontSizes.commentContent }]}>
-                        {maskUsername(comment.users?.email.split('@')[0] || 'User')}
-                      </Text>
-                      <Text style={[styles.commentTime, { fontSize: fontSizes.commentContent * 0.8 }]}>
-                        {new Date(comment.created_at).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.commentContent, { fontSize: fontSizes.commentContent, lineHeight: fontSizes.commentContent * 1.4 }]}>
-                    {comment.content}
-                  </Text>
-                  {comment.replies.length > 0 && (
-                    <View style={styles.repliesContainer}>
-                      {comment.replies.map((reply) => (
-                        <View key={reply.id} style={styles.replyItem}>
-                          <View style={styles.commentHeader}>
-                            <View style={styles.commentAvatar}>
-                              <Text style={[styles.commentAvatarText, { fontSize: fontSizes.commentContent * 0.8 }]}>
-                                {reply.users?.email.charAt(0) || 'U'}
-                              </Text>
-                            </View>
-                            <View style={styles.commentMeta}>
-                              <Text style={[styles.commentAuthor, { fontSize: fontSizes.commentContent }]}>
-                                {maskUsername(reply.users?.email.split('@')[0] || 'User')}
-                              </Text>
-                              <Text style={[styles.commentTime, { fontSize: fontSizes.commentContent * 0.8 }]}>
-                                {new Date(reply.created_at).toLocaleDateString()}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.commentContent, { fontSize: fontSizes.commentContent, lineHeight: fontSizes.commentContent * 1.4 }]}>
-                            {reply.content}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+                <View>
+                  <Text style={styles.authorName}>{article.account_name || article.author || '未知作者'}</Text>
+                  <Text style={styles.publishTime}>{getRelativeTime(article.created_at)}</Text>
                 </View>
-              ))
-            )}
+              </View>
+            </View>
           </View>
         </View>
+
+        {/* 文章内容 */}
+        <View style={styles.contentCard}>
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#1A4EA2" />
+          ) : (
+            <HTML
+              source={{ html: article.content }}
+              contentWidth={width - 32}
+              tagsStyles={htmlStyles}
+            />
+          )}
+        </View>
+
+        {/* 底部统计 */}
+        <View style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <Ionicons name="eye-outline" size={20} color="#999" />
+            <Text style={styles.statNumber}>{article.read_count || 0}</Text>
+            <Text style={styles.statLabel}>{t.read}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <TouchableOpacity style={styles.statItem} onPress={handleLike}>
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={20} 
+              color={isLiked ? '#F44336' : '#999'} 
+            />
+            <Text style={[styles.statNumber, isLiked && styles.statNumberActive]}>{likeCount}</Text>
+            <Text style={[styles.statLabel, isLiked && styles.statLabelActive]}>
+              {isLiked ? t.liked : t.like}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Ionicons name="chatbubble-outline" size={20} color="#999" />
+            <Text style={styles.statNumber}>{article.comment_count || 0}</Text>
+            <Text style={styles.statLabel}>{t.comment}</Text>
+          </View>
+        </View>
+
+        {/* 底部留白 */}
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* 留言输入区域 */}
-      <View style={styles.commentInputContainer}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder={lang === 'zh' ? '写下你的留言...' : 'Write your comment...'}
-          placeholderTextColor="#999"
-          value={commentText}
-          onChangeText={setCommentText}
-          multiline
-          maxLength={500}
-        />
-        <Pressable 
-          onPress={handleSubmitComment} 
-          disabled={submittingComment || !commentText.trim()}
-          style={[styles.submitButton, (!commentText.trim() || submittingComment) && styles.submitButtonDisabled]}
-        >
-          {submittingComment ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {lang === 'zh' ? '发送' : 'Send'}
+      {/* 底部操作栏 */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomButton} onPress={onClose}>
+          <Ionicons name="arrow-back" size={20} color="#666" />
+          <Text style={styles.bottomButtonText}>{t.back}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.bottomButton, styles.likeButton]} onPress={handleLike}>
+          <LinearGradient
+            colors={isLiked ? ['#F44336', '#D32F2F'] : ['#1A4EA2', '#0D3A8A']}
+            style={styles.likeButtonGradient}
+          >
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.likeButtonText}>
+              {isLiked ? t.liked : t.like}
             </Text>
-          )}
-        </Pressable>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomButton} onPress={handleShare}>
+          <Ionicons name="share-outline" size={20} color="#666" />
+          <Text style={styles.bottomButtonText}>{t.share}</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* PDF阅读模态窗口（仅在非Web平台上显示） */}
-      {Platform.OS !== 'web' && (
-        <Modal
-          visible={showPdfModal}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={() => setShowPdfModal(false)}
-        >
-          <View style={styles.pdfModalContainer}>
-            {/* 模态窗口头部 */}
-            <View style={styles.pdfModalHeader}>
-              <Pressable
-                onPress={() => setShowPdfModal(false)}
-                style={styles.pdfModalBackButton}
-              >
-                <Text style={styles.pdfModalBackText}>←</Text>
-              </Pressable>
-              <Text style={styles.pdfModalTitle}>
-                {lang === 'zh' ? 'PDF阅读' : 'PDF Reader'}
-              </Text>
-              <View style={styles.pdfModalHeaderRight} />
-            </View>
-
-            {/* PDF内容 */}
-            <View style={styles.pdfContentContainer}>
-              {currentArticle.pdf_url && Pdf ? (
-                <Pdf
-                  source={{ uri: currentArticle.pdf_url }}
-                  style={styles.pdf}
-                  onError={(error) => {
-                    console.error('PDF error:', error)
-                    Alert.alert(
-                      lang === 'zh' ? '错误' : 'Error',
-                      lang === 'zh' ? 'PDF加载失败，请重试' : 'Failed to load PDF, please try again'
-                    )
-                  }}
-                />
-              ) : (
-                <View style={styles.pdfErrorContainer}>
-                  <Text style={styles.pdfErrorText}>
-                    {lang === 'zh' ? 'PDF文件不存在' : 'PDF file not found'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
-      )}
-    </KeyboardAvoidingView>
-  )
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  centerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-    height: 56,
+    paddingBottom: 16,
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backText: {
-    fontSize: 24,
-    color: '#000000',
-    fontWeight: '300',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '500',
-    color: '#000000',
-  },
-  headerRight: {
-    width: 40,
-  },
-  scrollView: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginHorizontal: 12,
   },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  articleContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  accountInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarContainer: {
-    marginRight: 8,
-  },
-  avatar: {
+  shareButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#576b95',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  avatarText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
+  content: {
+    flex: 1,
   },
-  accountName: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  title: {
-    color: '#000000',
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 36,
-    marginBottom: 16,
-  },
-  coverImageContainer: {
-    marginBottom: 16,
-    borderRadius: 8,
-    overflow: 'hidden',
+  articleHeaderCard: {
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
   },
   coverImage: {
     width: '100%',
-    height: 200,
-    resizeMode: 'cover',
+    height: 220,
   },
-  metaInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  titleSection: {
+    padding: 16,
+  },
+  articleTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
+    lineHeight: 32,
     marginBottom: 16,
   },
-  dateText: {
-    color: '#888888',
-    fontSize: 14,
-  },
-  statsContainer: {
+  authorSection: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  statText: {
-    color: '#888888',
-    fontSize: 14,
-    marginLeft: 12,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 24,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  content: {
-    color: '#333333',
-    fontSize: 17,
-    lineHeight: 28,
-    letterSpacing: 0.5,
-  },
-  interactionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    marginBottom: 24,
-  },
-  interactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  interactionButtonPressed: {
-    opacity: 0.7,
-    backgroundColor: 'rgba(87, 107, 149, 0.1)',
-    borderRadius: 8,
-  },
-  interactionIcon: {
-    fontSize: 18,
-    marginRight: 4,
-  },
-  interactionText: {
-    color: '#576b95',
-    fontSize: 14,
-  },
-  commentsContainer: {
-    paddingBottom: 24,
-  },
-  commentsTitle: {
-    color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  noCommentsText: {
-    color: '#999',
-    fontSize: 14,
-    textAlign: 'center',
-    paddingVertical: 40,
-  },
-  commentItem: {
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#576b95',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  commentAvatarText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  commentMeta: {
-    flex: 1,
-  },
-  commentAuthor: {
-    color: '#333',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  commentTime: {
-    color: '#999',
-    fontSize: 12,
-  },
-  commentContent: {
-    color: '#333',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  repliesContainer: {
-    marginTop: 12,
-    marginLeft: 40,
-  },
-  replyItem: {
-    marginBottom: 12,
-  },
-  commentInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    backgroundColor: '#fff',
-  },
-  commentInput: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    fontSize: 14,
-    color: '#333',
-    marginRight: 8,
-  },
-  submitButton: {
-    backgroundColor: '#576b95',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  errorText: {
-    color: '#999',
-    fontSize: 14,
-  },
-  // PDF按钮样式
-  pdfButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginVertical: 12,
-  },
-  pdfButtonIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  pdfButtonText: {
-    fontSize: 16,
-    color: '#576b95',
-    fontWeight: '500',
-  },
-  // PDF模态窗口样式
-  pdfModalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  pdfModalHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-    height: 56,
   },
-  pdfModalBackButton: {
+  authorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorAvatar: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  authorAvatarPlaceholder: {
+    backgroundColor: '#1A4EA2',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pdfModalBackText: {
-    fontSize: 24,
-    color: '#000',
-    fontWeight: '300',
+  authorAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
   },
-  pdfModalTitle: {
-    fontSize: 17,
-    fontWeight: '500',
-    color: '#000',
+  authorName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
   },
-  pdfModalHeaderRight: {
-    width: 40,
-  },
-  pdfContentContainer: {
-    flex: 1,
-  },
-  pdf: {
-    flex: 1,
-  },
-  pdfErrorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pdfErrorText: {
-    fontSize: 16,
+  publishTime: {
+    fontSize: 13,
     color: '#999',
   },
-})
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 12,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#F0F0F0',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 4,
+  },
+  statNumberActive: {
+    color: '#F44336',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  statLabelActive: {
+    color: '#F44336',
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  bottomButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  bottomButtonText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  likeButton: {
+    flex: 1.5,
+  },
+  likeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 24,
+    gap: 8,
+  },
+  likeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});

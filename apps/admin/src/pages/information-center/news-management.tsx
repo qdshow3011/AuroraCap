@@ -93,6 +93,9 @@ const NewsManagement: React.FC = () => {
   const fetchSchedulerStatus = async () => {
     try {
       const response = await fetch('http://localhost:3003/api/news/scheduler/status');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const result = await response.json();
       
       if (result.success) {
@@ -100,6 +103,8 @@ const NewsManagement: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to fetch scheduler status:', err);
+      // 后端服务不可用时，不影响前端功能，静默处理错误
+      setSchedulerRunning(false);
     }
   };
 
@@ -113,6 +118,10 @@ const NewsManagement: React.FC = () => {
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -123,7 +132,7 @@ const NewsManagement: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to start scheduler:', err);
-      message.error('启动采集任务失败');
+      message.error('启动采集任务失败，请检查后端服务是否运行');
     } finally {
       setSchedulerLoading(false);
     }
@@ -139,6 +148,10 @@ const NewsManagement: React.FC = () => {
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -149,7 +162,7 @@ const NewsManagement: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to stop scheduler:', err);
-      message.error('停止采集任务失败');
+      message.error('停止采集任务失败，请检查后端服务是否运行');
     } finally {
       setSchedulerLoading(false);
     }
@@ -189,6 +202,10 @@ const NewsManagement: React.FC = () => {
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -199,8 +216,8 @@ const NewsManagement: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to sync news:', err);
-      setError('同步新闻失败，请稍后重试');
-      message.error('同步失败');
+      setError('同步新闻失败，请检查后端服务是否运行');
+      message.error('同步失败，请检查后端服务是否运行');
     } finally {
       setSyncing(false);
     }

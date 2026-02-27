@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Pressable, TextInput, Platform } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -49,7 +51,6 @@ export default function TradesScreen({
   onNavigateToCustomerService?: () => void,
   onNavigateToMessageCenter?: () => void
 }) {
-  // 获取安全区域信息
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'subscription' | 'redemption' | 'records' | 'contracts'>('subscription')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -58,63 +59,29 @@ export default function TradesScreen({
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // 根据版本获取样式配置
   const getVersionStyles = () => {
     switch (appVersion) {
       case 'simple':
         return {
-          fontSize: {
-            base: 18,
-            large: 22,
-            small: 16
-          },
-          fontWeight: {
-            regular: '400',
-            medium: '500',
-            bold: '700'
-          },
-          padding: {
-            base: 20,
-            small: 16
-          },
+          fontSize: { base: 18, large: 22, small: 16 },
+          fontWeight: { regular: '400', medium: '500', bold: '700' },
+          padding: { base: 20, small: 16 },
           borderRadius: 12,
           showSimplified: true
         };
       case 'premium':
         return {
-          fontSize: {
-            base: 16,
-            large: 20,
-            small: 14
-          },
-          fontWeight: {
-            regular: '400',
-            medium: '600',
-            bold: '800'
-          },
-          padding: {
-            base: 20,
-            small: 16
-          },
+          fontSize: { base: 16, large: 20, small: 14 },
+          fontWeight: { regular: '400', medium: '600', bold: '800' },
+          padding: { base: 20, small: 16 },
           borderRadius: 16,
           showPremium: true
         };
-      default: // standard
+      default:
         return {
-          fontSize: {
-            base: 15,
-            large: 18,
-            small: 13
-          },
-          fontWeight: {
-            regular: '400',
-            medium: '500',
-            bold: '700'
-          },
-          padding: {
-            base: 16,
-            small: 12
-          },
+          fontSize: { base: 15, large: 18, small: 13 },
+          fontWeight: { regular: '400', medium: '500', bold: '700' },
+          padding: { base: 16, small: 12 },
           borderRadius: 8,
           showAll: true
         };
@@ -123,13 +90,12 @@ export default function TradesScreen({
 
   const versionStyles = getVersionStyles();
 
-  // 语言翻译
   const t = lang === 'zh' ? {
     title: '交易',
-    subscription: '申购',
-    redemption: '赎回',
-    records: '记录',
-    contracts: '合同',
+    subscription: '申购申请',
+    redemption: '赎回申请',
+    records: '交易记录',
+    contracts: '合同管理',
     searchPlaceholder: '搜索产品',
     noProducts: '暂无产品',
     noPositions: '暂无持仓',
@@ -143,11 +109,15 @@ export default function TradesScreen({
     viewRecords: '查看记录',
     viewContracts: '查看合同',
     premiumServices: '尊享服务',
-    premiumContent: '专属投资顾问服务' + (appVersion === 'premium' ? ' - 已开通' : ' - 仅尊享版可用')
+    premiumContent: '专属投资顾问服务' + (appVersion === 'premium' ? ' - 已开通' : ' - 仅尊享版可用'),
+    nav: '净值',
+    annual: '年化',
+    hotProducts: '热门产品',
+    myPositions: '我的持仓',
   } : {
     title: 'Trades',
-    subscription: 'Subscribe',
-    redemption: 'Redeem',
+    subscription: 'Subscription',
+    redemption: 'Redemption',
     records: 'Records',
     contracts: 'Contracts',
     searchPlaceholder: 'Search Products',
@@ -163,10 +133,13 @@ export default function TradesScreen({
     viewRecords: 'View Records',
     viewContracts: 'View Contracts',
     premiumServices: 'Premium Services',
-    premiumContent: 'Exclusive Investment Advisor Service' + (appVersion === 'premium' ? ' - Active' : ' - Premium Only')
+    premiumContent: 'Exclusive Investment Advisor Service' + (appVersion === 'premium' ? ' - Active' : ' - Premium Only'),
+    nav: 'NAV',
+    annual: 'Annual',
+    hotProducts: 'Hot Products',
+    myPositions: 'My Positions',
   };
 
-  // 获取产品列表
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
@@ -189,7 +162,6 @@ export default function TradesScreen({
     }
   };
 
-  // 获取持仓列表
   const fetchPositions = async () => {
     try {
       setIsLoading(true);
@@ -218,7 +190,6 @@ export default function TradesScreen({
     fetchPositions();
   }, []);
 
-  // 根据appVersion过滤显示的功能
   const getVisibleTabs = () => {
     switch (appVersion) {
       case 'simple':
@@ -232,67 +203,106 @@ export default function TradesScreen({
 
   const visibleTabs = getVisibleTabs();
 
-  // 申购部分组件
+  const getTabIcon = (tab: string) => {
+    switch (tab) {
+      case 'subscription': return 'add-circle';
+      case 'redemption': return 'remove-circle';
+      case 'records': return 'document-text';
+      case 'contracts': return 'file-tray-full';
+      default: return 'ellipse';
+    }
+  };
+
   const SubscriptionSection = () => (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.subscription}</Text>
+      <View style={styles.sectionHeader}>
+        <LinearGradient colors={['#1A4EA2', '#0D3A8A']} style={styles.sectionIconBg}>
+          <Ionicons name="trending-up" size={20} color="#FFF" />
+        </LinearGradient>
+        <Text style={styles.sectionTitle}>{t.hotProducts}</Text>
+      </View>
       
-      {/* 搜索框 */}
-      <TextInput
-        style={[styles.searchInput, { fontSize: versionStyles.fontSize.base }]}
-        placeholder={t.searchPlaceholder}
-        placeholderTextColor="#999"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t.searchPlaceholder}
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
       
-      {/* 产品列表 */}
-      <ScrollView style={styles.productList}>
+      <ScrollView style={styles.productList} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
+          </View>
         ) : products.length === 0 ? (
-          <Text style={styles.noDataText}>{t.noProducts}</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cube-outline" size={48} color="#CCC" />
+            <Text style={styles.emptyText}>{t.noProducts}</Text>
+          </View>
         ) : (
-          products.map((product) => (
+          products.map((product, index) => (
             <Pressable 
               key={product.id} 
-              style={[styles.productCard, {
-                padding: versionStyles.padding.base,
-                borderRadius: versionStyles.borderRadius
-              }]}
+              style={styles.productCard}
               onPress={() => {
                 setSelectedProduct(product);
                 onNavigateToSubscriptionApplication?.();
               }}
             >
-              <Text style={[styles.productName, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>
-                {lang === 'zh' ? product.name_cn : product.name_en}
-              </Text>
-              <Text style={[styles.productCode, { fontSize: versionStyles.fontSize.small }]}>{product.fund_number}</Text>
-              <View style={styles.productDetails}>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>{lang === 'zh' ? '净值' : 'NAV'}</Text>
-                  <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.base }]}>{(product.net_asset_value || 0).toFixed(4)}</Text>
+              <LinearGradient
+                colors={['#1A4EA2', '#0D3A8A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.productCardGradient}
+              >
+                <View style={styles.productCardContent}>
+                  <View style={styles.productCardHeader}>
+                    <View style={styles.productIconBg}>
+                      <Text style={styles.productIconText}>基</Text>
+                    </View>
+                    <View style={styles.productTitleContainer}>
+                      <Text style={styles.productName} numberOfLines={1}>
+                        {lang === 'zh' ? product.name_cn : product.name_en}
+                      </Text>
+                      <Text style={styles.productCode}>{product.fund_number}</Text>
+                    </View>
+                    <View style={styles.annualReturnBadge}>
+                      <Text style={styles.annualReturnText}>+{(product.annual_return || 0).toFixed(2)}%</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.productDetailsRow}>
+                    <View style={styles.detailBox}>
+                      <Text style={styles.detailBoxLabel}>{t.nav}</Text>
+                      <Text style={styles.detailBoxValue}>{(product.net_asset_value || 0).toFixed(4)}</Text>
+                    </View>
+                    <View style={styles.detailBox}>
+                      <Text style={styles.detailBoxLabel}>{t.annual}</Text>
+                      <Text style={[styles.detailBoxValue, styles.positiveText]}>+{(product.annual_return || 0).toFixed(2)}%</Text>
+                    </View>
+                  </View>
+                  
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => {
+                      setSelectedProduct(product);
+                      onNavigateToSubscriptionApplication?.();
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#4CAF50', '#388E3C']}
+                      style={styles.actionButtonGradient}
+                    >
+                      <Ionicons name="add" size={16} color="#FFF" />
+                      <Text style={styles.actionButtonText}>{t.subscribeNow}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>{lang === 'zh' ? '年化' : 'Annual'}</Text>
-                  <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.base }]}>{(product.annual_return || 0).toFixed(2)}%</Text>
-                </View>
-              </View>
-              <View style={styles.actionButtons}>
-                <Pressable 
-                  style={[styles.applyButton, {
-                    backgroundColor: '#188038',
-                    borderRadius: versionStyles.borderRadius
-                  }]}
-                  onPress={() => {
-                    setSelectedProduct(product);
-                    onNavigateToSubscriptionApplication?.();
-                  }}
-                >
-                  <Text style={styles.applyButtonText}>{t.subscribeNow}</Text>
-                </Pressable>
-              </View>
+              </LinearGradient>
             </Pressable>
           ))
         )}
@@ -300,69 +310,86 @@ export default function TradesScreen({
     </View>
   );
 
-  // 赎回部分组件
   const RedemptionSection = () => (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.redemption}</Text>
+      <View style={styles.sectionHeader}>
+        <LinearGradient colors={['#FF9800', '#F57C00']} style={styles.sectionIconBg}>
+          <Ionicons name="wallet" size={20} color="#FFF" />
+        </LinearGradient>
+        <Text style={styles.sectionTitle}>{t.myPositions}</Text>
+      </View>
       
-      {/* 搜索框 */}
-      <TextInput
-        style={[styles.searchInput, { fontSize: versionStyles.fontSize.base }]}
-        placeholder={t.searchPlaceholder}
-        placeholderTextColor="#999"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t.searchPlaceholder}
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
       
-      {/* 持仓列表 */}
-      <ScrollView style={styles.productList}>
+      <ScrollView style={styles.productList} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>{lang === 'zh' ? '加载中...' : 'Loading...'}</Text>
+          </View>
         ) : positions.length === 0 ? (
-          <Text style={styles.noDataText}>{t.noPositions}</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="wallet-outline" size={48} color="#CCC" />
+            <Text style={styles.emptyText}>{t.noPositions}</Text>
+          </View>
         ) : (
           positions.map((position) => (
             <Pressable 
               key={position.id} 
-              style={[styles.productCard, {
-                padding: versionStyles.padding.base,
-                borderRadius: versionStyles.borderRadius
-              }]}
+              style={styles.positionCard}
               onPress={() => {
                 onNavigateToRedemptionApplication?.(position.product);
               }}
             >
-              <Text style={[styles.productName, { fontSize: versionStyles.fontSize.base, fontWeight: versionStyles.fontWeight.medium }]}>
-                {lang === 'zh' ? position.product.name_cn : position.product.name_en}
-              </Text>
-              <Text style={[styles.productCode, { fontSize: versionStyles.fontSize.small }]}>{position.product.fund_number}</Text>
-              <View style={styles.holdingDetails}>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>{t.shares}</Text>
-                  <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.base }]}>{(position.shares || 0).toFixed(2)}</Text>
+              <View style={styles.positionCardHeader}>
+                <View style={[styles.positionIconBg, { backgroundColor: '#FFF3E0' }]}>
+                  <Text style={[styles.positionIconText, { color: '#FF9800' }]}>持</Text>
                 </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>{t.avgCost}</Text>
-                  <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.base }]}>{(position.avg_cost || 0).toFixed(4)}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { fontSize: versionStyles.fontSize.small }]}>{t.currentValue}</Text>
-                  <Text style={[styles.detailValue, { fontSize: versionStyles.fontSize.base }]}>{(position.current_value || 0).toFixed(2)}</Text>
+                <View style={styles.positionTitleContainer}>
+                  <Text style={styles.positionName} numberOfLines={1}>
+                    {lang === 'zh' ? position.product.name_cn : position.product.name_en}
+                  </Text>
+                  <Text style={styles.positionCode}>{position.product.fund_number}</Text>
                 </View>
               </View>
-              <View style={styles.actionButtons}>
-                <Pressable 
-                  style={[styles.applyButton, {
-                    backgroundColor: '#d93025',
-                    borderRadius: versionStyles.borderRadius
-                  }]}
-                  onPress={() => {
-                    onNavigateToRedemptionApplication?.(position.product);
-                  }}
+              
+              <View style={styles.positionDetailsGrid}>
+                <View style={styles.positionDetailItem}>
+                  <Text style={styles.positionDetailLabel}>{t.shares}</Text>
+                  <Text style={styles.positionDetailValue}>{(position.shares || 0).toFixed(2)}</Text>
+                </View>
+                <View style={styles.positionDetailItem}>
+                  <Text style={styles.positionDetailLabel}>{t.avgCost}</Text>
+                  <Text style={styles.positionDetailValue}>{(position.avg_cost || 0).toFixed(4)}</Text>
+                </View>
+                <View style={styles.positionDetailItem}>
+                  <Text style={styles.positionDetailLabel}>{t.currentValue}</Text>
+                  <Text style={[styles.positionDetailValue, styles.positiveText]}>{(position.current_value || 0).toFixed(2)}</Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  onNavigateToRedemptionApplication?.(position.product);
+                }}
+              >
+                <LinearGradient
+                  colors={['#FF5722', '#D84315']}
+                  style={styles.actionButtonGradient}
                 >
-                  <Text style={styles.applyButtonText}>{t.redeemNow}</Text>
-                </Pressable>
-              </View>
+                  <Ionicons name="remove" size={16} color="#FFF" />
+                  <Text style={styles.actionButtonText}>{t.redeemNow}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </Pressable>
           ))
         )}
@@ -370,56 +397,100 @@ export default function TradesScreen({
     </View>
   );
 
-  // 记录部分组件
   const RecordsSection = () => (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.records}</Text>
+      <View style={styles.sectionHeader}>
+        <LinearGradient colors={['#9C27B0', '#7B1FA2']} style={styles.sectionIconBg}>
+          <Ionicons name="time" size={20} color="#FFF" />
+        </LinearGradient>
+        <Text style={styles.sectionTitle}>{t.records}</Text>
+      </View>
       
-      <View style={styles.recordsButtons}>
-        <Pressable 
-          style={[styles.recordButton, {
-            padding: versionStyles.padding.base,
-            borderRadius: versionStyles.borderRadius
-          }]}
+      <View style={styles.recordsContainer}>
+        <TouchableOpacity 
+          style={styles.recordCardLarge}
           onPress={onNavigateToSubscriptionRedemptionRecords}
         >
-          <Text style={[styles.recordButtonText, { fontSize: versionStyles.fontSize.base }]}>{t.viewRecords}</Text>
-        </Pressable>
+          <LinearGradient
+            colors={['#667eea', '#764ba2']}
+            style={styles.recordCardGradient}
+          >
+            <View style={styles.recordCardContent}>
+              <View style={styles.recordIconBg}>
+                <Ionicons name="document-text" size={32} color="#667eea" />
+              </View>
+              <Text style={styles.recordCardTitle}>{t.viewRecords}</Text>
+              <Text style={styles.recordCardSubtitle}>
+                {lang === 'zh' ? '查看您的所有申购赎回记录' : 'View all your subscription and redemption records'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#FFF" style={styles.recordCardArrow} />
+          </LinearGradient>
+        </TouchableOpacity>
         
         {appVersion === 'premium' && (
-          <Pressable 
-            style={[styles.recordButton, {
-              padding: versionStyles.padding.base,
-              borderRadius: versionStyles.borderRadius,
-              backgroundColor: '#4a90e2'
-            }]}
+          <TouchableOpacity 
+            style={styles.recordCardLarge}
             onPress={() => alert(t.premiumContent)}
           >
-            <Text style={[styles.recordButtonText, { fontSize: versionStyles.fontSize.base, color: '#fff' }]}>{t.premiumServices}</Text>
-          </Pressable>
+            <LinearGradient
+              colors={['#f093fb', '#f5576c']}
+              style={styles.recordCardGradient}
+            >
+              <View style={styles.recordCardContent}>
+                <View style={[styles.recordIconBg, { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
+                  <Ionicons name="diamond" size={32} color="#f5576c" />
+                </View>
+                <Text style={styles.recordCardTitle}>{t.premiumServices}</Text>
+                <Text style={styles.recordCardSubtitle}>
+                  {lang === 'zh' ? '尊享专属投资顾问服务' : 'Exclusive investment advisor service'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#FFF" style={styles.recordCardArrow} />
+            </LinearGradient>
+          </TouchableOpacity>
         )}
       </View>
     </View>
   );
 
-  // 合同部分组件
   const ContractsSection = () => (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { fontSize: versionStyles.fontSize.large }]}>{t.contracts}</Text>
+      <View style={styles.sectionHeader}>
+        <LinearGradient colors={['#4CAF50', '#388E3C']} style={styles.sectionIconBg}>
+          <Ionicons name="shield-checkmark" size={20} color="#FFF" />
+        </LinearGradient>
+        <Text style={styles.sectionTitle}>{t.contracts}</Text>
+      </View>
       
-      <Pressable 
-        style={[styles.contractButton, {
-          padding: versionStyles.padding.base,
-          borderRadius: versionStyles.borderRadius
-        }]}
+      <TouchableOpacity 
+        style={styles.contractCardLarge}
         onPress={onNavigateToContractSigning}
       >
-        <Text style={[styles.contractButtonText, { fontSize: versionStyles.fontSize.base }]}>{t.viewContracts}</Text>
-      </Pressable>
+        <LinearGradient
+          colors={['#11998e', '#38ef7d']}
+          style={styles.contractCardGradient}
+        >
+          <View style={styles.contractCardContent}>
+            <View style={styles.contractIconBg}>
+              <Ionicons name="file-tray-full" size={40} color="#11998e" />
+            </View>
+            <Text style={styles.contractCardTitle}>{t.viewContracts}</Text>
+            <Text style={styles.contractCardSubtitle}>
+              {lang === 'zh' ? '管理您的基金合同和协议' : 'Manage your fund contracts and agreements'}
+            </Text>
+          </View>
+          <View style={styles.contractCardAction}>
+            <Text style={styles.contractCardActionText}>
+              {lang === 'zh' ? '立即查看' : 'View Now'}
+            </Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFF" />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 
-  // 语言翻译
   const navLabels = {
     subscription: t.subscription,
     redemption: t.redemption,
@@ -427,266 +498,475 @@ export default function TradesScreen({
     contracts: t.contracts
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#f0f2f5',
-    },
-    content: {
-      flex: 1,
-    },
-    header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#f0f2f5',
-  },
-    title: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#333',
-    },
-    headerIcons: {
-      flexDirection: 'row',
-      gap: 16,
-    },
-    iconButton: {
-      padding: 8,
-    },
-    icon: {
-      fontSize: 24,
-      color: '#666',
-    },
-    tabBar: {
-      flexDirection: 'row',
-      backgroundColor: '#fff',
-      borderBottomWidth: 1,
-      borderBottomColor: '#e0e0e0',
-    },
-    tabItem: {
-      flex: 1,
-      paddingVertical: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    activeTab: {
-      borderBottomWidth: 2,
-      borderBottomColor: '#4a90e2',
-    },
-    tabText: {
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    activeTabText: {
-      color: '#4a90e2',
-      fontWeight: '600',
-    },
-    section: {
-      padding: 16,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      marginBottom: 16,
-      color: '#333',
-    },
-    searchInput: {
-      backgroundColor: '#fff',
-      padding: 12,
-      borderRadius: 8,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: '#e0e0e0',
-    },
-    productList: {
-      flex: 1,
-    },
-    productCard: {
-      backgroundColor: '#fff',
-      marginBottom: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    productName: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: '#333',
-      marginBottom: 4,
-    },
-    productCode: {
-      fontSize: 14,
-      color: '#666',
-      marginBottom: 8,
-    },
-    productDetails: {
-      flexDirection: 'row',
-      marginBottom: 12,
-    },
-    detailItem: {
-      flex: 1,
-    },
-    detailLabel: {
-      fontSize: 12,
-      color: '#999',
-      marginBottom: 4,
-    },
-    detailValue: {
-      fontSize: 16,
-      color: '#333',
-      fontWeight: '500',
-    },
-    holdingDetails: {
-      marginBottom: 12,
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-    },
-    applyButton: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      backgroundColor: '#4a90e2',
-      borderRadius: 8,
-    },
-    applyButtonText: {
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    loadingText: {
-      fontSize: 16,
-      color: '#666',
-      textAlign: 'center',
-      padding: 20,
-    },
-    noDataText: {
-      fontSize: 16,
-      color: '#666',
-      textAlign: 'center',
-      padding: 20,
-    },
-    recordsButtons: {
-      flexDirection: 'column',
-      gap: 12,
-    },
-    recordButton: {
-      backgroundColor: '#fff',
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    recordButtonText: {
-      fontSize: 16,
-      color: '#333',
-      fontWeight: '500',
-    },
-    contractButton: {
-      backgroundColor: '#fff',
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    contractButtonText: {
-      fontSize: 16,
-      color: '#333',
-      fontWeight: '500',
-    },
-    emptyContainer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      flex: 1,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: '#666',
-    },
-  });
-
   return (
     <View style={styles.container}>
-      {/* 顶部导航栏 */}
-      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}>
-        <Text style={styles.title}>{t.title}</Text>
-        <View style={styles.headerIcons}>
-          {/* 消息中心图标 */}
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={onNavigateToMessageCenter}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#333" />
-          </TouchableOpacity>
-          {/* 在线客服图标 */}
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={onNavigateToCustomerService}
-          >
-            <Ionicons name="chatbubble-outline" size={24} color="#333" />
-          </TouchableOpacity>
-          {/* 版本切换图标 */}
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={onNavigateToVersionSwitch}
-          >
-            <Ionicons name="settings-outline" size={24} color="#333" />
-          </TouchableOpacity>
+      <StatusBar style="light" />
+      
+      <LinearGradient
+        colors={['#1A4EA2', '#0D3A8A']}
+        style={[styles.header, { paddingTop: Platform.OS === 'web' ? 20 : 40 + insets.top }]}
+      >
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>{t.title}</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.headerIconButton} onPress={onNavigateToMessageCenter}>
+              <Ionicons name="notifications-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconButton} onPress={onNavigateToCustomerService}>
+              <Ionicons name="chatbubble-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconButton} onPress={onNavigateToVersionSwitch}>
+              <Ionicons name="settings-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </LinearGradient>
 
-      {/* 底部标签栏 */}
       <View style={styles.tabBar}>
         {Object.entries(navLabels).map(([key, label]) => {
           const tabKey = key as 'subscription' | 'redemption' | 'records' | 'contracts';
           if (!visibleTabs.includes(tabKey)) return null;
+          const isActive = activeTab === tabKey;
           
           return (
             <TouchableOpacity
               key={key}
-              style={[styles.tabItem, activeTab === tabKey && styles.activeTab]}
+              style={[styles.tabItem, isActive && styles.activeTabItem]}
               onPress={() => setActiveTab(tabKey)}
             >
-              <Text style={[styles.tabText, activeTab === tabKey && styles.activeTabText]}>
+              <View style={[styles.tabIconContainer, isActive && styles.activeTabIconContainer]}>
+                <Ionicons 
+                  name={getTabIcon(key) as any} 
+                  size={20} 
+                  color={isActive ? '#1A4EA2' : '#999'} 
+                />
+              </View>
+              <Text style={[styles.tabText, isActive && styles.activeTabText]}>
                 {label}
               </Text>
+              {isActive && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* 主要内容区域 */}
-      <ScrollView style={styles.content}>
-        {/* 根据activeTab显示不同的内容 */}
-        {activeTab === 'subscription' && (
-          <SubscriptionSection />
-        )}
-        
-        {activeTab === 'redemption' && (
-          <RedemptionSection />
-        )}
-        
-        {activeTab === 'records' && (
-          <RecordsSection />
-        )}
-        
-        {activeTab === 'contracts' && (
-          <ContractsSection />
-        )}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {activeTab === 'subscription' && <SubscriptionSection />}
+        {activeTab === 'redemption' && <RedemptionSection />}
+        {activeTab === 'records' && <RecordsSection />}
+        {activeTab === 'contracts' && <ContractsSection />}
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  activeTabItem: {
+    // Active state
+  },
+  tabIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F5F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  activeTabIconContainer: {
+    backgroundColor: '#E3F2FD',
+  },
+  tabText: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#1A4EA2',
+    fontWeight: '600',
+  },
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: -8,
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#1A4EA2',
+  },
+  content: {
+    flex: 1,
+  },
+  section: {
+    padding: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+  },
+  productList: {
+    // Product list
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 12,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 12,
+  },
+  productCard: {
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#1A4EA2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  productCardGradient: {
+    // Gradient background
+  },
+  productCardContent: {
+    padding: 16,
+  },
+  productCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  productIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  productIconText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  productTitleContainer: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  productCode: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  annualReturnBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  annualReturnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4ADE80',
+  },
+  productDetailsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  detailBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  detailBoxLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 4,
+  },
+  detailBoxValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  positiveText: {
+    color: '#4ADE80',
+  },
+  actionButton: {
+    // Action button container
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  positionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  positionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  positionIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  positionIconText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  positionTitleContainer: {
+    flex: 1,
+  },
+  positionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  positionCode: {
+    fontSize: 12,
+    color: '#999',
+  },
+  positionDetailsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  positionDetailItem: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+    padding: 12,
+  },
+  positionDetailLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 4,
+  },
+  positionDetailValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
+  },
+  recordsContainer: {
+    gap: 12,
+  },
+  recordCardLarge: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  recordCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  recordCardContent: {
+    flex: 1,
+  },
+  recordIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  recordCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 6,
+  },
+  recordCardSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  recordCardArrow: {
+    marginLeft: 12,
+  },
+  contractCardLarge: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  contractCardGradient: {
+    padding: 24,
+  },
+  contractCardContent: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  contractIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  contractCardTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 8,
+  },
+  contractCardSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+  },
+  contractCardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  contractCardActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  bottomPadding: {
+    height: 30,
+  },
+});

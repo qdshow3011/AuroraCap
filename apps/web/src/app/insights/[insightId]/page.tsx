@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
+
 export default function InsightDetail() {
   const { t } = useTranslation('common');
   const { insightId } = useParams();
@@ -14,6 +15,10 @@ export default function InsightDetail() {
   const [user, setUser] = useState<any>(null);
   const [userLoading, setUserLoading] = useState(true);
   const [observerExpired, setObserverExpired] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentContent, setCommentContent] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const router = useRouter();
 
   // Fetch user data
@@ -107,7 +112,7 @@ export default function InsightDetail() {
         
         const { data, error } = await supabase
           .from('internal_references')
-          .select('*')
+          .select('*, account:account_id(*)')
           .eq('id', insightId)
           .single();
         
@@ -129,6 +134,81 @@ export default function InsightDetail() {
 
     fetchInsight();
   }, [insightId, router]);
+
+  // Fetch comments
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!insightId) return;
+
+      try {
+        setCommentsLoading(true);
+        console.log('Fetching comments for insight:', insightId);
+        
+        const url = new URL('/api/comments', window.location.origin);
+        url.searchParams.append('article_id', insightId);
+        
+        const response = await fetch(url.toString());
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch comments');
+        }
+        
+        const result = await response.json();
+        const { data } = result;
+        
+        console.log('Successfully fetched comments:', data?.length || 0, 'comments found');
+        setComments(data || []);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        setComments([]);
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    fetchComments();
+  }, [insightId]);
+
+  // Submit comment function
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!commentContent.trim() || !user || !insightId) {
+      return;
+    }
+
+    try {
+      setCommentSubmitting(true);
+      
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          article_id: insightId,
+          content: commentContent.trim(),
+          user_id: user.id,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit comment');
+      }
+      
+      const result = await response.json();
+      const { data: newComment } = result;
+      
+      if (newComment) {
+        setComments(prevComments => [newComment, ...prevComments]);
+        setCommentContent('');
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
 
   // Show loading if either insight or user is still loading
   if (insightLoading || userLoading) {
@@ -186,6 +266,40 @@ export default function InsightDetail() {
 
       {/* Insight Detail */}
       <div className="bg-[var(--surface)] rounded-xl shadow-lg overflow-hidden">
+        {/* Cover Image */}
+        {insight.cover_image && (
+          <div className="relative h-64 md:h-80 overflow-hidden">
+            <img
+              src={insight.cover_image}
+              alt={insight.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
+        {/* Account Info */}
+        {insight.account && (
+          <div className="p-8 border-b border-[var(--border)] flex items-center gap-4">
+            {insight.account.avatar && (
+              <img
+                src={insight.account.avatar}
+                alt={insight.account.name}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            )}
+            <div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                {insight.account.name}
+              </h3>
+              {insight.account.description && (
+                <p className="text-sm text-[var(--text-secondary)]">
+                  {insight.account.description}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Category and Date */}
         <div className="p-8 border-b border-[var(--border)]">
           {insight.category && (
@@ -252,6 +366,86 @@ export default function InsightDetail() {
             </div>
           </div>
         )}
+
+        {/* Comments Section */}
+        <div className="p-8 border-t border-[var(--border)]">
+          <h2 className="text-2xl font-bold mb-8 text-[var(--text-primary)]">
+            留言 ({comments.length})
+          </h2>
+
+          {/* Comment Form */}
+          <form onSubmit={handleSubmitComment} className="mb-8">
+            <textarea
+              value={commentContent}
+              onChange={(e) => setCommentContent(e.target.value)}
+              placeholder="写下你的想法..."
+              className="w-full p-4 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+              rows={4}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={commentSubmitting || !commentContent.trim()}
+                className="px-8 py-2 bg-gradient-to-r from-[var(--primary)] to-[var(--primary-light)] text-white rounded-lg hover:shadow-lg transition-all duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {commentSubmitting ? '提交中...' : '提交留言'}
+              </button>
+            </div>
+          </form>
+
+          {/* Comments List */}
+          {commentsLoading ? (
+            <div className="text-center py-8">
+              {t('loading')}
+            </div>
+          ) : comments.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-[var(--text-secondary)]">
+                暂无留言，快来抢沙发吧！
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {comments.map((comment, index) => (
+                <div key={comment.id} className="flex gap-4">
+                  {comment.user && comment.user.avatar ? (
+                    <img
+                      src={comment.user.avatar}
+                      alt={comment.user.email || 'User'}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[var(--primary)]/20 flex items-center justify-center flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--primary)]">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium text-[var(--text-primary)]">
+                        {comment.user?.email || '用户'}
+                      </h4>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {new Date(comment.created_at).toLocaleDateString('zh-CN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-[var(--text-secondary)] leading-relaxed">
+                      {comment.content}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Related Insights */}

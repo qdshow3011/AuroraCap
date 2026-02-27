@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: { insightI
     // Get the insight by ID
     const { data: insight, error } = await supabase
       .from('internal_references')
-      .select('*')
+      .select('*, account:account_id(*)')
       .eq('id', insightId)
       .single();
 
