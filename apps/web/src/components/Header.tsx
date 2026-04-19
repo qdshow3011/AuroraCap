@@ -122,16 +122,16 @@ export function Header() {
   };
 
   return (
-    <header className="bg-[var(--surface)] sticky top-0 z-50 border-b border-[var(--border)]">
+    <header className="bg-[var(--surface)] sticky top-0 z-50 border-b border-[var(--border)] shadow-sm transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
-          <Link href="/" className="text-2xl font-bold text-[var(--primary)] tracking-tight flex items-center gap-2">
+          <Link href="/" className="text-2xl font-bold text-[var(--primary)] tracking-tight flex items-center gap-2 transition-all duration-300 hover:scale-105">
             <img 
               src="/logo.svg" 
               alt="Aurora Intelligent Fund" 
               width="32" 
               height="32" 
-              className="object-contain" 
+              className="object-contain transition-all duration-300 hover:rotate-12"
             />
             {t('appName')}
           </Link>
@@ -139,60 +139,66 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             {/* Main navigation items - always visible */}
-            <Link href="/" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+            <Link href="/" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
               {t('home')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link href="/funds" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+            <Link href="/funds" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
               {t('funds')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link href="/insights" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+            <Link href="/insights" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
               {t('insights')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link href="/about" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+            <Link href="/about" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
               {t('about')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link href="/contact" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+            <Link href="/contact" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
               {t('contact')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
             </Link>
            
             
             {/* Divider */}
-            <span className="text-[var(--border)]">|</span>
+            <span className="text-[var(--border)] hidden lg:block">|</span>
             
             {/* User-specific buttons */}
             {user ? (
-              <>
+              <div className="flex items-center space-x-3">
                 {/* Logged in state: only show 操作台 and 退出登录 */}
                 <Link 
                   href="/user" 
-                  className="btn btn-primary btn-md"
+                  className="btn btn-primary btn-md hover:shadow-lg"
                 >
                   操作台
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="btn btn-secondary btn-md"
+                  className="btn btn-secondary btn-md hover:shadow-lg"
                 >
                   退出登录
                 </button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex items-center space-x-3">
                 {/* Logged out state: only show 注册 and 登录 */}
                 <Link
                   href="/register"
-                  className="btn btn-primary btn-md"
+                  className="btn btn-primary btn-md hover:shadow-lg"
                 >
                   注册
                 </Link>
-                <Link href="/login" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal text-sm transition-colors">
+                <Link href="/login" className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium text-sm transition-all duration-300 relative group">
                   登录
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full"></span>
                 </Link>
-              </>
+              </div>
             )}
             
             {/* Divider */}
-            <span className="text-[var(--border)]">|</span>
+            <span className="text-[var(--border)] hidden lg:block">|</span>
             
             {/* Language switcher - always visible */}
             <LanguageSwitcher className="ml-2" />
@@ -223,46 +229,46 @@ export function Header() {
 
         {/* Mobile Menu */}
         {menuOpen && (
-          <div className="md:hidden bg-[var(--surface)] border-t border-[var(--border)] py-4 px-4 animate-slideDown">
+          <div className="md:hidden bg-[var(--surface)] border-t border-[var(--border)] py-4 px-4 animate-slideDown shadow-lg">
             <div className="space-y-3">
               <Link 
                 href="/" 
-                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 {t('home')}
               </Link>
               <Link 
                 href="/funds" 
-                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 {t('funds')}
               </Link>
               <Link 
                 href="/insights" 
-                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 {t('insights')}
               </Link>
               <Link 
                 href="/about" 
-                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 {t('about')}
               </Link>
               <Link 
                 href="/contact" 
-                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 {t('contact')}
               </Link>
               <div className="px-4 pb-2">
-              <LanguageSwitcher />
-            </div>
+                <LanguageSwitcher />
+              </div>
             
             {/* User-specific buttons */}
             {user ? (
@@ -270,7 +276,7 @@ export function Header() {
                 {/* Logged in state: only show 操作台 and 退出登录 */}
                 <Link 
                   href="/user" 
-                  className="w-full btn btn-primary btn-md block text-center mb-3"
+                  className="w-full btn btn-primary btn-md block text-center mb-3 hover:shadow-lg"
                   onClick={() => setMenuOpen(false)}
                 >
                   操作台
@@ -280,7 +286,7 @@ export function Header() {
                     handleLogout();
                     setMenuOpen(false);
                   }}
-                  className="w-full btn btn-secondary btn-md"
+                  className="w-full btn btn-secondary btn-md hover:shadow-lg"
                 >
                   退出登录
                 </button>
@@ -290,14 +296,14 @@ export function Header() {
                 {/* Logged out state: only show 注册 and 登录 */}
                 <Link
                   href="/register"
-                  className="w-full btn btn-primary btn-md block text-center mb-3"
+                  className="w-full btn btn-primary btn-md block text-center mb-3 hover:shadow-lg"
                   onClick={() => setMenuOpen(false)}
                 >
                   注册
                 </Link>
                 <Link 
                   href="/login" 
-                  className="text-[var(--text-primary)] hover:text-[var(--primary)] font-normal py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
+                  className="text-[var(--text-primary)] hover:text-[var(--primary)] font-medium py-3 px-4 block rounded-lg hover:bg-[var(--border)] transition-colors"
                   onClick={() => setMenuOpen(false)}
                 >
                   登录

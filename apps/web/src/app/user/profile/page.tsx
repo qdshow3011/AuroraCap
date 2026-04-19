@@ -490,20 +490,20 @@ export default function Profile() {
               <h2 className="text-xl font-semibold mb-4">账户安全</h2>
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-4 border border-gray-200 rounded-md">
-            <div>
-              <h3 className="font-medium">修改密码</h3>
-              <p className="text-sm text-gray-600">定期修改密码有助于保护账户安全</p>
-            </div>
-            <button
-              disabled
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md cursor-not-allowed"
-            >
-              修改密码
-            </button>
-            <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-              即将上线
-            </span>
-          </div>
+                  <div>
+                    <h3 className="font-medium">修改密码</h3>
+                    <p className="text-sm text-gray-600">定期修改密码有助于保护账户安全</p>
+                  </div>
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md cursor-not-allowed"
+                  >
+                    修改密码
+                  </button>
+                  <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                    即将上线
+                  </span>
+                </div>
                 
                 <div className="flex justify-between items-center p-4 border border-gray-200 rounded-md">
                   <div>
@@ -517,6 +517,16 @@ export default function Profile() {
                 
                 <div className="flex justify-between items-center p-4 border border-gray-200 rounded-md">
                   <div>
+                    <h3 className="font-medium">交易密码</h3>
+                    <p className="text-sm text-gray-600">设置交易密码用于保护资金安全</p>
+                  </div>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    设置密码
+                  </button>
+                </div>
+                
+                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-md">
+                  <div>
                     <h3 className="font-medium">登录设备管理</h3>
                     <p className="text-sm text-gray-600">查看并管理所有登录设备</p>
                   </div>
@@ -525,6 +535,125 @@ export default function Profile() {
                   </button>
                 </div>
               </div>
+            </div>
+            
+            {/* 银行卡管理 */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">银行卡管理</h2>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                  添加银行卡
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div className="p-4 border border-gray-200 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium">中国银行</h3>
+                      <p className="text-sm text-gray-600">6217 **** **** 1234</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300 transition-colors">
+                        设为默认
+                      </button>
+                      <button className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors">
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 border border-gray-200 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium">中国工商银行</h3>
+                      <p className="text-sm text-gray-600">6222 **** **** 5678</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300 transition-colors">
+                        设为默认
+                      </button>
+                      <button className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors">
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* 实名认证 */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h2 className="text-xl font-semibold mb-4">实名认证</h2>
+              {verified ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+                  <div className="flex items-start">
+                    <div className="text-green-600 mr-3">✅</div>
+                    <div>
+                      <h3 className="font-medium text-green-800">已完成实名认证</h3>
+                      <p className="text-sm text-green-700 mt-1">您的身份信息已通过验证，可以正常使用所有功能</p>
+                      <button className="mt-3 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                        查看认证信息
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <form className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">真实姓名</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="请输入真实姓名"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">身份证号</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="请输入身份证号"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">身份证照片</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">正面照片</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">反面照片</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <input
+                      type="checkbox"
+                      id="agreeAuth"
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="agreeAuth" className="ml-3 text-sm text-gray-600">
+                      我已阅读并同意
+                      <Link href="#" className="text-blue-600 hover:underline ml-1">《实名认证协议》</Link>
+                    </label>
+                  </div>
+                  <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    提交认证
+                  </button>
+                </form>
+              )}
             </div>
           </BlurEffect>
         </div>
