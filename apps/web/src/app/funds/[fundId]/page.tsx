@@ -1,12 +1,136 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 
 // 时间范围类型定义
 type TimeRange = '1m' | '3m' | '1y' | '3y' | 'all';
+
+// 模拟基金数据
+const mockFunds = [
+  {
+    id: '1',
+    name_cn: '全球股票基金',
+    name: 'Global Equity Fund',
+    code: 'GF001',
+    description: '投资于全球股票市场的多元化基金，追求长期资本增值',
+    risk_level: '高风险',
+    type: 'fund',
+    status: 'active',
+    nav: 10.5,
+    cumulative_nav: 12.8,
+    size: 1000000000,
+    manager: '张三',
+    management_fee: 1.5,
+    custodian_fee: 0.25,
+    benchmark: 'MSCI World Index',
+    investment_strategy: '投资于全球范围内具有良好成长性的上市公司股票',
+    min_subscription: 1000,
+    created_at: '2023-01-15T00:00:00Z',
+    performance_1m: 2.3,
+    performance_3m: 8.7,
+    performance_1y: 15.2,
+    performance_3y: 45.7,
+    performance_5y: 89.3,
+    Sharpe_ratio: 1.2,
+    max_drawdown: -25.3,
+    alpha: 3.5,
+    beta: 1.1
+  },
+  {
+    id: '2',
+    name_cn: '债券基金',
+    name: 'Bond Fund',
+    code: 'BF001',
+    description: '投资于固定收益证券的低风险基金，追求稳定收益',
+    risk_level: '低风险',
+    type: 'bond',
+    status: 'active',
+    nav: 5.2,
+    cumulative_nav: 5.8,
+    size: 500000000,
+    manager: '李四',
+    management_fee: 0.8,
+    custodian_fee: 0.2,
+    benchmark: 'China Bond Index',
+    investment_strategy: '投资于高质量债券，追求稳定的固定收益',
+    min_subscription: 500,
+    created_at: '2023-02-20T00:00:00Z',
+    performance_1m: 0.5,
+    performance_3m: 1.8,
+    performance_1y: 5.3,
+    performance_3y: 15.8,
+    performance_5y: 28.4,
+    Sharpe_ratio: 0.8,
+    max_drawdown: -5.2,
+    alpha: 0.5,
+    beta: 0.3
+  },
+  {
+    id: '3',
+    name_cn: '混合基金',
+    name: 'Balanced Fund',
+    code: 'HF001',
+    description: '平衡配置股票和债券的混合型基金，兼顾收益和风险',
+    risk_level: '中风险',
+    type: 'fund',
+    status: 'active',
+    nav: 8.7,
+    cumulative_nav: 10.2,
+    size: 750000000,
+    manager: '王五',
+    management_fee: 1.2,
+    custodian_fee: 0.22,
+    benchmark: 'CSI 300 Index',
+    investment_strategy: '平衡配置股票和债券，根据市场情况动态调整资产配置',
+    min_subscription: 1000,
+    created_at: '2023-03-10T00:00:00Z',
+    performance_1m: 1.2,
+    performance_3m: 4.5,
+    performance_1y: 8.5,
+    performance_3y: 25.6,
+    performance_5y: 45.2,
+    Sharpe_ratio: 0.9,
+    max_drawdown: -15.8,
+    alpha: 2.1,
+    beta: 0.7
+  }
+];
+
+// 生成模拟净值历史数据
+const generateNavHistory = (fundId: string, startDate: Date, endDate: Date) => {
+  const history = [];
+  const currentDate = new Date(startDate);
+  let nav = 10.0;
+  
+  while (currentDate <= endDate) {
+    // 随机波动，范围在 -0.1 到 +0.1 之间
+    const change = (Math.random() * 0.2) - 0.1;
+    nav = Math.max(8.0, nav + change); // 确保净值不会低于 8.0
+    
+    history.push({
+      date: currentDate.toISOString().split('T')[0],
+      nav: parseFloat(nav.toFixed(4))
+    });
+    
+    // 增加一天
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return history;
+};
+
+// 生成模拟风险分析数据
+const generateRiskAnalysisData = () => {
+  return [
+    { name: '波动率', value: 15.2 },
+    { name: '最大回撤', value: 25.3 },
+    { name: 'Sharpe比率', value: 1.2 },
+    { name: 'Alpha', value: 3.5 },
+    { name: 'Beta', value: 1.1 }
+  ];
+};
 
 export default function FundDetail() {
   const params = useParams();
@@ -21,6 +145,7 @@ export default function FundDetail() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [relatedFunds, setRelatedFunds] = useState<any[]>([]);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [riskAnalysisData, setRiskAnalysisData] = useState<any[]>([]);
 
   // 获取时间范围内的数据
   const filterNavHistoryByTimeRange = (data: any[], range: TimeRange) => {
@@ -61,8 +186,8 @@ export default function FundDetail() {
       try {
         setLoading(true);
         
-        // Fetch fund details
-        const { data: fundData } = await supabase.from('products').select('*').eq('id', fundId).single();
+        // 查找模拟基金数据
+        const fundData = mockFunds.find(f => f.id === fundId);
         
         if (!fundData) {
           router.push('/funds');
@@ -71,24 +196,20 @@ export default function FundDetail() {
         
         setFund(fundData);
         
-        // Fetch NAV history
-        const { data: navData } = await supabase
-          .from('fund_nav_history')
-          .select('*')
-          .eq('fund_id', fundId)
-          .order('date', { ascending: true });
+        // 生成模拟净值历史数据
+        const startDate = new Date();
+        startDate.setFullYear(startDate.getFullYear() - 3); // 生成3年的数据
+        const endDate = new Date();
+        const generatedNavHistory = generateNavHistory(fundId, startDate, endDate);
+        setNavHistory(generatedNavHistory);
         
-        setNavHistory(navData || []);
+        // 生成模拟风险分析数据
+        const generatedRiskData = generateRiskAnalysisData();
+        setRiskAnalysisData(generatedRiskData);
         
-        // Fetch related funds (same type)
-        const { data: relatedData } = await supabase
-          .from('products')
-          .select('*')
-          .eq('type', fundData.type)
-          .neq('id', fundId)
-          .limit(3);
-        
-        setRelatedFunds(relatedData || []);
+        // 查找相关基金
+        const relatedData = mockFunds.filter(f => f.type === fundData.type && f.id !== fundId);
+        setRelatedFunds(relatedData);
         
       } catch (error) {
         console.error('Error fetching fund details:', error);
@@ -322,32 +443,128 @@ export default function FundDetail() {
             {/* Performance Analysis */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-800">业绩分析</h2>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <p className="text-sm text-gray-500 font-medium mb-2">近一年收益率</p>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 rounded-full" style={{ width: '75%' }}></div>
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min(100, (fund?.performance_1y || 0) * 2)}%` }}></div>
                   </div>
                   <div className="flex justify-between mt-1">
                     <span className="text-sm text-gray-500">-10%</span>
-                    <span className="text-sm font-medium text-green-600">+15.2%</span>
+                    <span className={`text-sm font-medium ${(fund?.performance_1y || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_1y || 0) >= 0 ? '+' : ''}{fund?.performance_1y || 0}%
+                    </span>
                     <span className="text-sm text-gray-500">+30%</span>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-xs text-gray-500">近1个月</p>
-                    <p className="text-lg font-bold text-green-600">+2.3%</p>
+                    <p className={`text-lg font-bold ${(fund?.performance_1m || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_1m || 0) >= 0 ? '+' : ''}{fund?.performance_1m || 0}%
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-xs text-gray-500">近3个月</p>
-                    <p className="text-lg font-bold text-green-600">+8.7%</p>
+                    <p className={`text-lg font-bold ${(fund?.performance_3m || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_3m || 0) >= 0 ? '+' : ''}{fund?.performance_3m || 0}%
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-xs text-gray-500">近1年</p>
-                    <p className="text-lg font-bold text-green-600">+15.2%</p>
+                    <p className={`text-lg font-bold ${(fund?.performance_1y || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_1y || 0) >= 0 ? '+' : ''}{fund?.performance_1y || 0}%
+                    </p>
                   </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">近3年</p>
+                    <p className={`text-lg font-bold ${(fund?.performance_3y || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_3y || 0) >= 0 ? '+' : ''}{fund?.performance_3y || 0}%
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">近5年</p>
+                    <p className={`text-lg font-bold ${(fund?.performance_5y || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(fund?.performance_5y || 0) >= 0 ? '+' : ''}{fund?.performance_5y || 0}%
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="h-64 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        { name: '近1月', value: fund?.performance_1m || 0 },
+                        { name: '近3月', value: fund?.performance_3m || 0 },
+                        { name: '近1年', value: fund?.performance_1y || 0 },
+                        { name: '近3年', value: fund?.performance_3y || 0 },
+                        { name: '近5年', value: fund?.performance_5y || 0 }
+                      ]}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                      <YAxis tickFormatter={(value) => `${value}%`} stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value) => [`${value}%`, '收益率']} />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {[
+                          { name: '近1月', value: fund?.performance_1m || 0 },
+                          { name: '近3月', value: fund?.performance_3m || 0 },
+                          { name: '近1年', value: fund?.performance_1y || 0 },
+                          { name: '近3年', value: fund?.performance_3y || 0 },
+                          { name: '近5年', value: fund?.performance_5y || 0 }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#10b981' : '#ef4444'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+            
+            {/* Risk Analysis */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">风险分析</h2>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">波动率</p>
+                    <p className="text-lg font-bold text-gray-900">{fund?.volatility || fund?.risk_level === '高风险' ? '15.2%' : fund?.risk_level === '中风险' ? '8.5%' : '3.2%'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">最大回撤</p>
+                    <p className="text-lg font-bold text-red-600">{fund?.max_drawdown || fund?.risk_level === '高风险' ? '-25.3%' : fund?.risk_level === '中风险' ? '-15.8%' : '-5.2%'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Sharpe比率</p>
+                    <p className="text-lg font-bold text-gray-900">{fund?.Sharpe_ratio || fund?.risk_level === '高风险' ? '1.2' : fund?.risk_level === '中风险' ? '0.9' : '0.8'}</p>
+                  </div>
+                </div>
+                
+                <div className="h-64 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={riskAnalysisData}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
+                      layout="vertical"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                      <YAxis dataKey="name" type="category" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h3 className="font-medium text-amber-800 mb-2">风险评估</h3>
+                  <p className="text-sm text-amber-700">
+                    该基金的风险等级为 <strong>{fund?.risk_level || '中风险'}</strong>，适合风险承受能力为
+                    <strong> {fund?.risk_level === '高风险' ? 'C4-C5' : fund?.risk_level === '中风险' ? 'C3' : 'C1-C2'}</strong> 的投资者。
+                  </p>
                 </div>
               </div>
             </div>

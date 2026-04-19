@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { UserNav } from '@/components/UserNav';
 import BlurEffect from '@/components/BlurEffect';
@@ -28,63 +27,75 @@ export default function MessagesList() {
       try {
         setLoading(true);
         
-        let currentUser = null;
-        let profileData = null;
+        // Mock user data
+        const mockUser = {
+          id: '1',
+          email: 'user@example.com',
+          name: '张三'
+        };
         
-        // 1. First check for mock session in localStorage
-        try {
-          const mockSession = localStorage.getItem('mock_session');
-          if (mockSession) {
-            const sessionData = JSON.parse(mockSession);
-            currentUser = sessionData.user;
-            
-            // Get user profile from users table
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
+        const mockProfile = {
+          id: '1',
+          user_id: '1',
+          name: '张三',
+          phone: '138****8888',
+          role: 'USER'
+        };
+        
+        setUser(mockUser);
+        setProfile(mockProfile);
+        setIsObserverMode(mockProfile.role === 'Guest' || mockProfile.role === 'USER');
+        
+        // Mock messages data
+        const mockMessages: Message[] = [
+          {
+            id: '1',
+            title: '系统通知：账户安全升级',
+            content: '尊敬的用户，为了保障您的账户安全，我们将于近期进行系统升级，期间可能会短暂影响部分功能的使用。',
+            type: 'system',
+            is_read: false,
+            created_at: '2024-01-15T10:30:00Z',
+            user_id: '1'
+          },
+          {
+            id: '2',
+            title: '投资提醒：市场波动',
+            content: '您持有的嘉实沪深300ETF联接A近期出现较大波动，建议关注市场动态。',
+            type: 'investment',
+            is_read: false,
+            created_at: '2024-01-14T14:20:00Z',
+            user_id: '1'
+          },
+          {
+            id: '3',
+            title: '活动通知：新用户专享',
+            content: '尊敬的新用户，您可以参与我们的新用户专享活动，首次投资可获得额外收益。',
+            type: 'activity',
+            is_read: true,
+            created_at: '2024-01-13T09:15:00Z',
+            user_id: '1'
+          },
+          {
+            id: '4',
+            title: '系统通知：密码更新',
+            content: '您的账户密码已成功更新，请妥善保管您的新密码。',
+            type: 'system',
+            is_read: true,
+            created_at: '2024-01-12T16:45:00Z',
+            user_id: '1'
+          },
+          {
+            id: '5',
+            title: '投资提醒：分红到账',
+            content: '您持有的易方达蓝筹精选混合A已于昨日分红，分红金额已转入您的账户。',
+            type: 'investment',
+            is_read: false,
+            created_at: '2024-01-11T11:20:00Z',
+            user_id: '1'
           }
-        } catch (mockError) {
-          console.error('Mock session error:', mockError);
-        }
+        ];
         
-        // 2. If no mock session, try Supabase Auth
-        if (!currentUser) {
-          try {
-            const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-            currentUser = supabaseUser;
-            
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
-          } catch (authError) {
-            console.error('Supabase Auth error:', authError);
-          }
-        }
-        
-        if (currentUser && profileData) {
-          setUser(currentUser);
-          setProfile(profileData);
-          setIsObserverMode(profileData.role === 'Guest' || profileData.role === 'USER');
-          
-          // Fetch messages
-          const { data: messagesData } = await supabase
-            .from('system_messages')
-            .select('*')
-            .eq('user_id', profileData.id)
-            .order('created_at', { ascending: false });
-          
-          setMessages(messagesData || []);
-        }
+        setMessages(mockMessages);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -120,10 +131,9 @@ export default function MessagesList() {
 
   const markAsRead = async (messageId: string) => {
     try {
-      await supabase
-        .from('system_messages')
-        .update({ is_read: true })
-        .eq('id', messageId);
+      // Mock API call - replace with actual API call
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Update local state
       setMessages(prev => prev.map(msg => 

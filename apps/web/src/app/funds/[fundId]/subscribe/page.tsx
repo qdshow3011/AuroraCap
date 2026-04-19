@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -11,7 +10,47 @@ interface FundInfo {
   min_subscription: number;
   management_fee: number;
   risk_level: string;
+  code: string;
+  size: number;
+  manager: string;
 }
+
+// 模拟基金数据
+const mockFunds = [
+  {
+    id: '1',
+    name: '全球股票基金',
+    code: 'GF001',
+    nav: 10.5,
+    min_subscription: 1000,
+    management_fee: 1.5,
+    risk_level: '高风险',
+    size: 1000000000,
+    manager: '张三'
+  },
+  {
+    id: '2',
+    name: '债券基金',
+    code: 'BF001',
+    nav: 5.2,
+    min_subscription: 500,
+    management_fee: 0.8,
+    risk_level: '低风险',
+    size: 500000000,
+    manager: '李四'
+  },
+  {
+    id: '3',
+    name: '混合基金',
+    code: 'HF001',
+    nav: 8.7,
+    min_subscription: 1000,
+    management_fee: 1.2,
+    risk_level: '中风险',
+    size: 750000000,
+    manager: '王五'
+  }
+];
 
 export default function FundSubscribe() {
   const params = useParams();
@@ -42,23 +81,16 @@ export default function FundSubscribe() {
       try {
         setLoading(true);
         
-        // Fetch fund details
-        const { data: fundData, error: fundError } = await supabase
-          .from('products')
-          .select('id, name_cn, nav, min_subscription, management_fee, risk_level')
-          .eq('id', fundId)
-          .single();
+        // 查找模拟基金数据
+        const fundData = mockFunds.find(f => f.id === fundId);
         
-        if (fundError || !fundData) {
+        if (!fundData) {
           setError('基金不存在或获取失败');
           return;
         }
         
-        // Set fund data with name mapped from name_cn
-        setFund({
-          ...fundData,
-          name: fundData.name_cn
-        });
+        // Set fund data
+        setFund(fundData);
       } catch (err) {
         setError('获取基金信息失败');
         console.error('Error fetching fund details:', err);
@@ -343,8 +375,87 @@ export default function FundSubscribe() {
                       <label htmlFor="balance" className="ml-3 text-sm font-medium text-gray-700 cursor-pointer">
                         账户余额支付
                       </label>
+                      <span className="ml-auto text-sm text-gray-500">可用: ¥{availableBalance.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        id="bankCard"
+                        name="paymentMethod"
+                        value="bankCard"
+                        checked={paymentMethod === 'bankCard'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="bankCard" className="ml-3 text-sm font-medium text-gray-700 cursor-pointer">
+                        银行卡支付
+                      </label>
                     </div>
                   </div>
+                </div>
+                
+                {/* Bank Card Selection (if bankCard is selected) */}
+                {paymentMethod === 'bankCard' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      选择银行卡
+                    </label>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          id="card1"
+                          name="bankCard"
+                          value="card1"
+                          checked={true}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <label htmlFor="card1" className="ml-3 text-sm font-medium text-gray-700 cursor-pointer flex-1">
+                          <div>
+                            <div className="flex justify-between">
+                              <span>中国工商银行</span>
+                              <span>储蓄卡</span>
+                            </div>
+                            <div className="text-gray-500 text-xs mt-1">**** **** **** 1234</div>
+                          </div>
+                        </label>
+                      </div>
+                      <div className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          id="card2"
+                          name="bankCard"
+                          value="card2"
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <label htmlFor="card2" className="ml-3 text-sm font-medium text-gray-700 cursor-pointer flex-1">
+                          <div>
+                            <div className="flex justify-between">
+                              <span>中国建设银行</span>
+                              <span>储蓄卡</span>
+                            </div>
+                            <div className="text-gray-500 text-xs mt-1">**** **** **** 5678</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Transaction Password */}
+                <div>
+                  <label htmlFor="transactionPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    交易密码
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      id="transactionPassword"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="请输入交易密码"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">交易密码用于保护您的交易安全</p>
                 </div>
                 
                 {/* Fees and Total */}

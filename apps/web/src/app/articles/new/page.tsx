@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
-export default function ArticleEditor() {
+function ArticleEditorContent() {
   const { t } = useTranslation('common');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -467,5 +467,13 @@ export default function ArticleEditor() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ArticleEditor() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-8">Loading...</div>}>
+      <ArticleEditorContent />
+    </Suspense>
   );
 }

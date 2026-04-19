@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import BlurEffect from '@/components/BlurEffect';
 import { UserNav } from '@/components/UserNav';
@@ -22,9 +21,100 @@ interface FundStatus {
   pendingAmount: number;
 }
 
+// 个人信息类型定义
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  id_number: string;
+  address: string;
+  bank_cards: BankCard[];
+  risk_assessment: RiskAssessment;
+  kyc_verified: boolean;
+  two_factor_enabled: boolean;
+}
+
+// 银行卡类型定义
+interface BankCard {
+  id: string;
+  bank_name: string;
+  card_number: string;
+  card_type: string;
+  is_default: boolean;
+}
+
+// 风险评估类型定义
+interface RiskAssessment {
+  level: string;
+  score: number;
+  date: string;
+  expires_at: string;
+}
+
+// 模拟用户数据
+const mockUser = {
+  id: '1',
+  email: 'user@example.com',
+  name: '张三',
+  role: 'USER'
+};
+
+// 模拟个人资料数据
+const mockProfile: UserProfile = {
+  id: '1',
+  name: '张三',
+  email: 'user@example.com',
+  phone: '13800138000',
+  avatar: 'https://neeko-copilot.bytedance.net/api/text2image?prompt=professional%20business%20person%20avatar&size=256x256',
+  id_number: '110101199001011234',
+  address: '北京市朝阳区建国路88号',
+  bank_cards: [
+    {
+      id: '1',
+      bank_name: '中国工商银行',
+      card_number: '**** **** **** 1234',
+      card_type: '储蓄卡',
+      is_default: true
+    },
+    {
+      id: '2',
+      bank_name: '中国建设银行',
+      card_number: '**** **** **** 5678',
+      card_type: '储蓄卡',
+      is_default: false
+    }
+  ],
+  risk_assessment: {
+    level: 'C3',
+    score: 65,
+    date: '2024-01-01',
+    expires_at: '2025-01-01'
+  },
+  kyc_verified: true,
+  two_factor_enabled: false
+};
+
+// 模拟资产数据
+const mockAssets: MyAssets = {
+  totalAssets: 125000.50,
+  fundValue: 100000.00,
+  cashBalance: 20000.50,
+  pendingFunds: 5000.00
+};
+
+// 模拟资金状况数据
+const mockFundStatus: FundStatus = {
+  availableBalance: 18000.50,
+  totalDeposit: 200000.00,
+  totalWithdrawal: 75000.00,
+  pendingAmount: 5000.00
+};
+
 export default function UserCenter() {
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [assets, setAssets] = useState<MyAssets | null>(null);
   const [fundStatus, setFundStatus] = useState<FundStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,183 +124,46 @@ export default function UserCenter() {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        console.log('Starting to fetch user data...');
         
-        // Try to get current user - first check mock session, then Supabase Auth
+        // 检查本地存储中的模拟会话
         let currentUser = null;
         let profileData = null;
         
-        // 1. First check for mock session in localStorage
         try {
           const mockSession = localStorage.getItem('mock_session');
-          console.log('Mock session exists:', !!mockSession);
           if (mockSession) {
             const sessionData = JSON.parse(mockSession);
             currentUser = sessionData.user;
-            console.log('Current user from mock session:', currentUser);
-            
-            // Get user profile from users table
-            if (currentUser?.email) {
-              const { data: userData, error: userDataError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-              console.log('User profile from users table:', userData, 'Error:', userDataError);
-            }
+          } else {
+            // 如果没有模拟会话，使用默认模拟数据
+            currentUser = mockUser;
+            // 保存到本地存储
+            localStorage.setItem('mock_session', JSON.stringify({ user: currentUser }));
           }
         } catch (mockError) {
           console.error('Mock session error:', mockError);
+          // 使用默认模拟数据
+          currentUser = mockUser;
         }
         
-        console.log('After mock session check - currentUser:', !!currentUser, 'profileData:', !!profileData);
+        // 使用模拟个人资料数据
+        profileData = mockProfile;
         
-        // 2. If no mock session, try Supabase Auth
-        if (!currentUser) {
-          try {
-            const { data: authData, error: authError } = await supabase.auth.getUser();
-            currentUser = authData?.user;
-            console.log('Current user from Supabase Auth:', currentUser, 'Error:', authError);
-            
-            // Get user profile from users table
-            if (currentUser?.email) {
-              const { data: userData, error: userDataError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-              console.log('User profile from users table:', userData, 'Error:', userDataError);
-            }
-          } catch (authError) {
-            console.error('Supabase Auth error:', authError);
-            // Don't redirect immediately, keep the user on the page
-          }
-        }
+        // 设置状态
+        setUser(currentUser);
+        setProfile(profileData);
+        setIsObserverMode(currentUser?.role === 'Guest' || currentUser?.role === 'USER');
         
-        console.log('Final user data - currentUser:', !!currentUser, 'profileData:', !!profileData);
-        
-        // 3. If we have user data, update state
-        console.log('Detailed currentUser:', JSON.stringify(currentUser));
-        console.log('Detailed profileData:', JSON.stringify(profileData));
-        
-        if (currentUser && profileData) {
-          console.log('Entering user data branch');
-          
-          // Also try to get user by ID directly
-          if (currentUser.id) {
-            const { data: userByIdData, error: userByIdError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', currentUser.id)
-              .single();
-            console.log('User by ID data:', userByIdData, 'Error:', userByIdError);
-          }
-          setUser(currentUser);
-          setProfile(profileData);
-          setIsObserverMode(profileData?.role === 'Guest' || profileData?.role === 'USER');
-          
-          // Try to fetch real data from Supabase
-            try {
-              // Get user profile ID for queries
-              const userIdForQueries = profileData.id || currentUser.id;
-              console.log('Using userIdForQueries:', userIdForQueries);
-              
-              // Get cash balance and fund data from cash_balances table
-              const { data: cashBalanceData, error: cashBalanceError } = await supabase
-                .from('cash_balances')
-                .select('cash_balance, fund_value, available_cash, total_withdrawals, pending_cash')
-                .eq('user_id', userIdForQueries)
-                .single();
-              
-              console.log('Cash balance data:', cashBalanceData, 'Error:', cashBalanceError);
-              
-              // Extract values from cash_balances table with defaults
-              const fundValue = cashBalanceData?.fund_value || 0;
-              const cashBalance = cashBalanceData?.cash_balance || 0;
-              const availableCash = cashBalanceData?.available_cash || 0;
-              const totalWithdrawals = cashBalanceData?.total_withdrawals || 0;
-              const pendingCash = cashBalanceData?.pending_cash || 0;
-              
-              // Get total deposit from deposit_withdrawal table (still need to calculate this)
-              const { data: depositData } = await supabase
-                .from('deposit_withdrawal')
-                .select('amount')
-                .eq('user_id', userIdForQueries)
-                .eq('type', 'deposit')
-                .eq('status', 'completed');
-              const totalDeposit = depositData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-              
-              // Calculate total assets
-              const totalAssets = fundValue + cashBalance + pendingCash;
-              
-              const realAssets: MyAssets = {
-                totalAssets: totalAssets,
-                fundValue: fundValue,
-                cashBalance: cashBalance,
-                pendingFunds: pendingCash
-              };
-              
-              const realFundStatus: FundStatus = {
-                availableBalance: availableCash,
-                totalDeposit: totalDeposit,
-                totalWithdrawal: totalWithdrawals,
-                pendingAmount: pendingCash
-              };
-              
-              console.log('Setting real assets:', realAssets);
-              console.log('Setting real fund status:', realFundStatus);
-              
-              setAssets(realAssets);
-              setFundStatus(realFundStatus);
-            } catch (dataError) {
-              console.error('Error fetching real data:', dataError);
-              // Use default data on error
-              const defaultAssets: MyAssets = {
-                totalAssets: 0,
-                fundValue: 0,
-                cashBalance: 0,
-                pendingFunds: 0
-              };
-              
-              const defaultFundStatus: FundStatus = {
-                availableBalance: 0,
-                totalDeposit: 0,
-                totalWithdrawal: 0,
-                pendingAmount: 0
-              };
-              
-              setAssets(defaultAssets);
-              setFundStatus(defaultFundStatus);
-            }
-        } else {
-          // If no user data, keep the user on the page with default data
-          console.log('No user data found, showing default asset data');
-          
-          // Use default mock data for guest users
-          const defaultAssets: MyAssets = {
-            totalAssets: 0,
-            fundValue: 0,
-            cashBalance: 0,
-            pendingFunds: 0
-          };
-          
-          const defaultFundStatus: FundStatus = {
-            availableBalance: 0,
-            totalDeposit: 0,
-            totalWithdrawal: 0,
-            pendingAmount: 0
-          };
-          
-          setAssets(defaultAssets);
-          setFundStatus(defaultFundStatus);
-        }
+        // 使用模拟资产数据
+        setAssets(mockAssets);
+        setFundStatus(mockFundStatus);
       } catch (error) {
-        console.error('Error fetching asset data:', error);
-        // Use default empty data on error
-        setAssets({ totalAssets: 0, fundValue: 0, cashBalance: 0, pendingFunds: 0 });
-        setFundStatus({ availableBalance: 0, totalDeposit: 0, totalWithdrawal: 0, pendingAmount: 0 });
+        console.error('Error fetching user data:', error);
+        // 使用默认模拟数据
+        setUser(mockUser);
+        setProfile(mockProfile);
+        setAssets(mockAssets);
+        setFundStatus(mockFundStatus);
       } finally {
         setLoading(false);
       }
@@ -242,13 +195,12 @@ export default function UserCenter() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold">资产状态</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">用户中心</h1>
         <button 
           className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
           onClick={() => {
             // Handle logout
             localStorage.removeItem('mock_session');
-            supabase.auth.signOut();
             window.location.href = '/login';
           }}
         >
@@ -264,6 +216,55 @@ export default function UserCenter() {
         
         {/* Main content */}
         <div className="lg:col-span-3">
+          {/* User Profile Card */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100">
+                  <img 
+                    src={profile?.avatar || 'https://neeko-copilot.bytedance.net/api/text2image?prompt=professional%20business%20person%20avatar&size=256x256'} 
+                    alt="User Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold">{profile?.name || '未知用户'}</h2>
+                    <p className="text-gray-500">{profile?.email || '未知邮箱'}</p>
+                  </div>
+                  <Link 
+                    href="/user/profile" 
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    编辑资料
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">手机号</p>
+                    <p className="text-sm font-medium">{profile?.phone || '未设置'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">实名认证</p>
+                    <p className={`text-sm font-medium ${profile?.kyc_verified ? 'text-green-600' : 'text-red-600'}`}>
+                      {profile?.kyc_verified ? '已认证' : '未认证'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">风险评估等级</p>
+                    <p className="text-sm font-medium">{profile?.risk_assessment?.level || '未评估'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">风险评估日期</p>
+                    <p className="text-sm font-medium">{profile?.risk_assessment?.date || '未评估'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Total Assets Overview */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">总资产概览</h2>
@@ -325,6 +326,37 @@ export default function UserCenter() {
             </BlurEffect>
           </div>
           
+          {/* Bank Cards */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">银行卡管理</h2>
+              <Link 
+                href="/user/profile" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                管理银行卡
+              </Link>
+            </div>
+            <BlurEffect isBlurred={isObserverMode}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {profile?.bank_cards?.map((card) => (
+                  <div key={card.id} className="border rounded-lg p-4 relative">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{card.bank_name}</p>
+                        <p className="text-sm text-gray-500 mt-1">{card.card_type}</p>
+                        <p className="text-sm font-medium mt-2">{card.card_number}</p>
+                      </div>
+                      {card.is_default && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">默认</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </BlurEffect>
+          </div>
+          
           {/* Fund Status Chart */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">资金状况</h2>
@@ -350,7 +382,43 @@ export default function UserCenter() {
             </BlurEffect>
           </div>
           
-
+          {/* Security Settings */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">安全设置</h2>
+              <Link 
+                href="/user/settings" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                安全中心
+              </Link>
+            </div>
+            <BlurEffect isBlurred={isObserverMode}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border rounded-lg p-4">
+                  <p className="font-medium">交易密码</p>
+                  <p className="text-sm text-gray-500 mt-1">用于保护您的交易操作</p>
+                  <button className="mt-3 px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300 transition-colors">
+                    设置
+                  </button>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <p className="font-medium">两步验证</p>
+                  <p className="text-sm text-gray-500 mt-1">{profile?.two_factor_enabled ? '已开启' : '未开启'}</p>
+                  <button className="mt-3 px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300 transition-colors">
+                    {profile?.two_factor_enabled ? '管理' : '开启'}
+                  </button>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <p className="font-medium">登录密码</p>
+                  <p className="text-sm text-gray-500 mt-1">定期修改密码保障安全</p>
+                  <button className="mt-3 px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300 transition-colors">
+                    修改
+                  </button>
+                </div>
+              </div>
+            </BlurEffect>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { UserNav } from '@/components/UserNav';
 import BlurEffect from '@/components/BlurEffect';
@@ -40,54 +39,24 @@ export default function CustomerService() {
       try {
         setLoading(true);
         
-        let currentUser = null;
-        let profileData = null;
+        // Mock user data
+        const mockUser = {
+          id: '1',
+          email: 'user@example.com',
+          name: '张三'
+        };
         
-        // 1. First check for mock session in localStorage
-        try {
-          const mockSession = localStorage.getItem('mock_session');
-          if (mockSession) {
-            const sessionData = JSON.parse(mockSession);
-            currentUser = sessionData.user;
-            
-            // Get user profile from users table
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
-          }
-        } catch (mockError) {
-          console.error('Mock session error:', mockError);
-        }
+        const mockProfile = {
+          id: '1',
+          user_id: '1',
+          name: '张三',
+          phone: '138****8888',
+          role: 'USER'
+        };
         
-        // 2. If no mock session, try Supabase Auth
-        if (!currentUser) {
-          try {
-            const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-            currentUser = supabaseUser;
-            
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
-          } catch (authError) {
-            console.error('Supabase Auth error:', authError);
-          }
-        }
-        
-        if (currentUser && profileData) {
-          setUser(currentUser);
-          setProfile(profileData);
-          setIsObserverMode(profileData.role === 'Guest' || profileData.role === 'USER');
-        }
+        setUser(mockUser);
+        setProfile(mockProfile);
+        setIsObserverMode(mockProfile.role === 'Guest' || mockProfile.role === 'USER');
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -138,6 +107,18 @@ export default function CustomerService() {
         question: '客服服务时间是多久？',
         answer: '客服服务时间为周一至周五 9:00-18:00，节假日休息。',
         category: '其他'
+      },
+      {
+        id: '6',
+        question: '如何查看我的交易记录？',
+        answer: '您可以在"交易记录"页面查看您的所有交易历史，包括申购、赎回等操作。',
+        category: '投资'
+      },
+      {
+        id: '7',
+        question: '如何绑定银行卡？',
+        answer: '您可以在"个人资料"页面的"银行卡管理"部分，添加您的银行卡信息。',
+        category: '账户'
       }
     ]);
   }, []);

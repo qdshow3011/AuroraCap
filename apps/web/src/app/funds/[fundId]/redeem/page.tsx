@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -19,6 +18,13 @@ interface UserPosition {
   current_value: number;
 }
 
+interface BankCard {
+  id: string;
+  bankName: string;
+  cardNumber: string;
+  isDefault: boolean;
+}
+
 export default function FundRedeem() {
   const params = useParams();
   const router = useRouter();
@@ -26,6 +32,7 @@ export default function FundRedeem() {
   
   const [fund, setFund] = useState<FundInfo | null>(null);
   const [position, setPosition] = useState<UserPosition | null>(null);
+  const [bankCards, setBankCards] = useState<BankCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -37,6 +44,8 @@ export default function FundRedeem() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [transactionPassword, setTransactionPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Calculated values
   const [fees, setFees] = useState(0);
@@ -47,26 +56,18 @@ export default function FundRedeem() {
       try {
         setLoading(true);
         
-        // Fetch fund details
-        const { data: fundData, error: fundError } = await supabase
-          .from('products')
-          .select('id, name_cn, nav, min_redemption, risk_level')
-          .eq('id', fundId)
-          .single();
+        // Mock fund data - replace with actual API call
+        const mockFund: FundInfo = {
+          id: fundId,
+          name: '嘉实沪深300ETF联接A',
+          nav: 1.3245,
+          min_redemption: 1000,
+          risk_level: '中风险'
+        };
         
-        if (fundError || !fundData) {
-          setError('基金不存在或获取失败');
-          return;
-        }
+        setFund(mockFund);
         
-        // Set fund data with name mapped from name_cn
-        setFund({
-          ...fundData,
-          name: fundData.name_cn
-        });
-        
-        // Fetch user position (mock data for now)
-        // In a real app, you would fetch this from user_positions table
+        // Mock user position
         const mockPosition: UserPosition = {
           id: '1',
           units: 12000,
@@ -75,6 +76,24 @@ export default function FundRedeem() {
         };
         
         setPosition(mockPosition);
+        
+        // Mock bank cards
+        const mockBankCards: BankCard[] = [
+          {
+            id: '1',
+            bankName: '中国工商银行',
+            cardNumber: '**** **** **** 1234',
+            isDefault: true
+          },
+          {
+            id: '2',
+            bankName: '中国建设银行',
+            cardNumber: '**** **** **** 5678',
+            isDefault: false
+          }
+        ];
+        
+        setBankCards(mockBankCards);
       } catch (err) {
         setError('获取基金信息失败');
         console.error('Error fetching fund details:', err);
@@ -139,6 +158,11 @@ export default function FundRedeem() {
       return;
     }
     
+    if (!transactionPassword) {
+      setError('请输入交易密码');
+      return;
+    }
+    
     try {
       setProcessing(true);
       setError(null);
@@ -154,6 +178,8 @@ export default function FundRedeem() {
         fees,
         netAmount,
         redeemType,
+        paymentAccount,
+        transactionPassword
       });
       
       // Navigate to success page
@@ -431,21 +457,71 @@ export default function FundRedeem() {
                     到账账户
                   </label>
                   <div className="grid grid-cols-1 gap-3">
-                    <div className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
-                      <input
-                        type="radio"
-                        id="default"
-                        name="paymentAccount"
-                        value="default"
-                        checked={paymentAccount === 'default'}
-                        onChange={(e) => setPaymentAccount(e.target.value)}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                      />
-                      <label htmlFor="default" className="ml-3 text-sm font-medium text-gray-700 cursor-pointer">
-                        默认银行账户
-                      </label>
-                    </div>
+                    {bankCards.map((card) => (
+                      <div 
+                        key={card.id}
+                        className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${paymentAccount === card.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-500'}`}
+                        onClick={() => setPaymentAccount(card.id)}
+                      >
+                        <input
+                          type="radio"
+                          id={`card-${card.id}`}
+                          name="paymentAccount"
+                          value={card.id}
+                          checked={paymentAccount === card.id}
+                          onChange={(e) => setPaymentAccount(e.target.value)}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <div className="ml-3">
+                          <label htmlFor={`card-${card.id}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                            {card.bankName}
+                          </label>
+                          <p className="text-xs text-gray-500">{card.cardNumber}</p>
+                          {card.isDefault && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                              默认
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                </div>
+                
+                {/* Transaction Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    交易密码
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="transactionPassword"
+                      value={transactionPassword}
+                      onChange={(e) => setTransactionPassword(e.target.value)}
+                      className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="请输入6位交易密码"
+                      maxLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878a3 3 0 104.243 4.243m0 0l4.243-4.243m-4.242 4.242L5.636 5.636" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    请输入您的6位数字交易密码
+                  </p>
                 </div>
                 
                 {/* Fees and Net Amount */}

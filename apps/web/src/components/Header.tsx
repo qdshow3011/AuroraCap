@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
-import { supabase } from '@/lib/supabase';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -11,38 +10,12 @@ export function Header() {
   const { t } = useTranslation('common');
 
   useEffect(() => {
-    console.log('Header useEffect triggered');
-    // Fetch initial user - check both Supabase auth and mock session
-    const fetchUser = async () => {
-      console.log('Fetching user...');
-      // First check Supabase auth
-      try {
-        const { data: { user: currentUser }, error: supabaseError } = await supabase.auth.getUser();
-        console.log('Supabase auth getUser result:', currentUser, 'Error:', supabaseError);
-        
-        if (currentUser) {
-          console.log('Setting user from Supabase:', currentUser);
-          setUser(currentUser);
-        } else {
-          // Check for mock session in localStorage
-          console.log('Checking localStorage for mock session...');
-          checkMockSession();
-        }
-      } catch (error) {
-        console.error('Error in fetchUser:', error);
-        // If Supabase auth fails, still check mock session
-        checkMockSession();
-      }
-    };
-
-    // Function to check mock session in localStorage
+    // Check for mock session in localStorage
     const checkMockSession = () => {
       const mockSessionStr = localStorage.getItem('mock_session');
-      console.log('Mock session in localStorage:', mockSessionStr);
       if (mockSessionStr) {
         try {
           const mockSession = JSON.parse(mockSessionStr);
-          console.log('Setting user from mock session:', mockSession.user);
           setUser(mockSession.user);
         } catch (error) {
           console.error('Error parsing mock session:', error);
@@ -50,29 +23,15 @@ export function Header() {
           setUser(null);
         }
       } else {
-        console.log('No user found in Supabase or localStorage');
         setUser(null);
       }
     };
 
-    fetchUser();
-
-    // Subscribe to auth changes
-    console.log('Subscribing to auth changes...');
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, 'Session:', session);
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        // Check mock session when auth state changes to null
-        checkMockSession();
-      }
-    });
+    checkMockSession();
 
     // Add event listener for storage changes (in case mock session is updated in another tab)
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'mock_session') {
-        console.log('Storage change detected for mock_session:', event.newValue);
         checkMockSession();
       }
     };
@@ -82,24 +41,17 @@ export function Header() {
     const mockSessionTimer = setInterval(checkMockSession, 5000);
 
     return () => {
-      console.log('Cleaning up Header useEffect...');
-      authListener?.subscription.unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(mockSessionTimer);
     };
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      // Sign out from Supabase auth
-      await supabase.auth.signOut();
-      
       // Clear all user-related data from localStorage
       localStorage.removeItem('mock_session');
       localStorage.removeItem('user');
       localStorage.removeItem('session');
-      localStorage.removeItem('sb-access-token');
-      localStorage.removeItem('sb-refresh-token');
       
       // Clear all user-related data from sessionStorage
       sessionStorage.removeItem('user');

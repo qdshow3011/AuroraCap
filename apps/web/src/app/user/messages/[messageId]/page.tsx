@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserNav } from '@/components/UserNav';
@@ -34,78 +33,89 @@ export default function MessageDetail() {
       try {
         setLoading(true);
         
-        let currentUser = null;
-        let profileData = null;
+        // Mock user data
+        const mockUser = {
+          id: '1',
+          email: 'user@example.com',
+          name: '张三'
+        };
         
-        // 1. First check for mock session in localStorage
-        try {
-          const mockSession = localStorage.getItem('mock_session');
-          if (mockSession) {
-            const sessionData = JSON.parse(mockSession);
-            currentUser = sessionData.user;
-            
-            // Get user profile from users table
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
+        const mockProfile = {
+          id: '1',
+          user_id: '1',
+          name: '张三',
+          phone: '138****8888',
+          role: 'USER'
+        };
+        
+        setUser(mockUser);
+        setProfile(mockProfile);
+        setIsObserverMode(mockProfile.role === 'Guest' || mockProfile.role === 'USER');
+        
+        // Mock messages data
+        const mockMessages: Message[] = [
+          {
+            id: '1',
+            title: '系统通知：账户安全升级',
+            content: '尊敬的用户，为了保障您的账户安全，我们将于近期进行系统升级，期间可能会短暂影响部分功能的使用。\n\n升级时间：2024年1月20日 23:00-24:00\n升级内容：账户安全系统升级\n影响范围：登录、修改密码等功能\n\n感谢您的理解与支持！',
+            type: 'system',
+            is_read: false,
+            created_at: '2024-01-15T10:30:00Z',
+            user_id: '1'
+          },
+          {
+            id: '2',
+            title: '投资提醒：市场波动',
+            content: '您持有的嘉实沪深300ETF联接A近期出现较大波动，建议关注市场动态。\n\n最新净值：1.3245\n日涨跌幅：-0.56%\n近一周涨跌幅：-2.34%\n\n投资有风险，入市需谨慎。',
+            type: 'investment',
+            is_read: false,
+            created_at: '2024-01-14T14:20:00Z',
+            user_id: '1',
+            related_fund_id: '1'
+          },
+          {
+            id: '3',
+            title: '活动通知：新用户专享',
+            content: '尊敬的新用户，您可以参与我们的新用户专享活动，首次投资可获得额外收益。\n\n活动时间：2024年1月1日-2024年3月31日\n活动内容：首次投资满1000元，即可获得10元现金红包\n参与方式：直接在平台进行投资即可自动参与\n\n机会有限，不容错过！',
+            type: 'activity',
+            is_read: true,
+            created_at: '2024-01-13T09:15:00Z',
+            user_id: '1'
+          },
+          {
+            id: '4',
+            title: '系统通知：密码更新',
+            content: '您的账户密码已成功更新，请妥善保管您的新密码。\n\n更新时间：2024年1月12日 16:45\n如果不是您本人操作，请立即联系客服。',
+            type: 'system',
+            is_read: true,
+            created_at: '2024-01-12T16:45:00Z',
+            user_id: '1'
+          },
+          {
+            id: '5',
+            title: '投资提醒：分红到账',
+            content: '您持有的易方达蓝筹精选混合A已于昨日分红，分红金额已转入您的账户。\n\n基金名称：易方达蓝筹精选混合A\n分红金额：128.56元\n分红方式：现金分红\n到账时间：2024年1月11日\n\n感谢您的投资！',
+            type: 'investment',
+            is_read: false,
+            created_at: '2024-01-11T11:20:00Z',
+            user_id: '1',
+            related_fund_id: '2'
           }
-        } catch (mockError) {
-          console.error('Mock session error:', mockError);
+        ];
+        
+        // Find the message with the given id
+        const foundMessage = mockMessages.find(msg => msg.id === messageId);
+        
+        if (!foundMessage) {
+          throw new Error('消息不存在');
         }
         
-        // 2. If no mock session, try Supabase Auth
-        if (!currentUser) {
-          try {
-            const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-            currentUser = supabaseUser;
-            
-            if (currentUser?.email) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', currentUser.email)
-                .single();
-              profileData = userData;
-            }
-          } catch (authError) {
-            console.error('Supabase Auth error:', authError);
-          }
-        }
+        setMessage(foundMessage);
         
-        if (currentUser && profileData) {
-          setUser(currentUser);
-          setProfile(profileData);
-          setIsObserverMode(profileData.role === 'Guest' || profileData.role === 'USER');
-          
-          // Fetch message
-          const { data: messageData, error: messageError } = await supabase
-            .from('system_messages')
-            .select('*')
-            .eq('id', messageId)
-            .single();
-          
-          if (messageError) {
-            throw messageError;
-          }
-          
-          if (messageData.user_id !== profileData.id) {
-            throw new Error('您无权访问此消息');
-          }
-          
-          setMessage(messageData);
-          
-          // Mark as read if not already
-          if (!messageData.is_read) {
-            await supabase
-              .from('system_messages')
-              .update({ is_read: true })
-              .eq('id', messageId);
-          }
+        // Mark as read if not already
+        if (!foundMessage.is_read) {
+          // Mock API call - replace with actual API call
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (err: any) {
         console.error('Error fetching message:', err);
