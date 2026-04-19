@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
+// 时间范围类型定义
+type TimeRange = '1m' | '3m' | '1y' | '3y' | 'all';
+
 export default function FundDetail() {
   const params = useParams();
   const router = useRouter();
@@ -13,6 +16,45 @@ export default function FundDetail() {
   const [fund, setFund] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [navHistory, setNavHistory] = useState<any[]>([]);
+  const [filteredNavHistory, setFilteredNavHistory] = useState<any[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('1y');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [relatedFunds, setRelatedFunds] = useState<any[]>([]);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+
+  // 获取时间范围内的数据
+  const filterNavHistoryByTimeRange = (data: any[], range: TimeRange) => {
+    if (!data || data.length === 0) return [];
+    
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (range) {
+      case '1m':
+        startDate = new Date(now.setMonth(now.getMonth() - 1));
+        break;
+      case '3m':
+        startDate = new Date(now.setMonth(now.getMonth() - 3));
+        break;
+      case '1y':
+        startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+        break;
+      case '3y':
+        startDate = new Date(now.setFullYear(now.getFullYear() - 3));
+        break;
+      case 'all':
+      default:
+        return data;
+    }
+    
+    return data.filter(item => new Date(item.date) >= startDate);
+  };
+
+  // 时间范围改变时过滤数据
+  useEffect(() => {
+    const filtered = filterNavHistoryByTimeRange([...navHistory], timeRange);
+    setFilteredNavHistory(filtered);
+  }, [navHistory, timeRange]);
 
   useEffect(() => {
     const fetchFundDetails = async () => {
@@ -37,6 +79,17 @@ export default function FundDetail() {
           .order('date', { ascending: true });
         
         setNavHistory(navData || []);
+        
+        // Fetch related funds (same type)
+        const { data: relatedData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('type', fundData.type)
+          .neq('id', fundId)
+          .limit(3);
+        
+        setRelatedFunds(relatedData || []);
+        
       } catch (error) {
         console.error('Error fetching fund details:', error);
       } finally {
@@ -46,6 +99,32 @@ export default function FundDetail() {
 
     fetchFundDetails();
   }, [fundId, router]);
+
+  // 处理收藏按钮点击
+  const handleFavoriteToggle = () => {
+    setIsFavorite(!isFavorite);
+  };
+
+  // 处理分享
+  const handleShare = () => {
+    setShowShareDialog(true);
+  };
+
+  // 处理分享确认
+  const confirmShare = () => {
+    // 实际项目中可以调用分享API
+    alert('分享功能开发中');
+    setShowShareDialog(false);
+  };
+
+  // 复制分享链接
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      alert('链接已复制到剪贴板');
+    }).catch(err => {
+      console.error('复制失败:', err);
+    });
+  };
 
   if (loading) {
     return <div className="container mx-auto px-4 py-8">加载中...</div>;
@@ -71,6 +150,18 @@ export default function FundDetail() {
                 <p className="text-gray-600 mt-2 max-w-2xl">{fund.description}</p>
               </div>
               <div className="flex items-center space-x-4">
+                <button 
+                  onClick={handleFavoriteToggle}
+                  className={`p-2 rounded-full transition-colors ${isFavorite ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {isFavorite ? '❤️' : '🤍'}
+                </button>
+                <button 
+                  onClick={handleShare}
+                  className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  📤
+                </button>
                 <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${fund.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                   {fund.status === 'active' ? '运行中' : '已关闭'}
                 </span>
@@ -109,28 +200,27 @@ export default function FundDetail() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">净值走势</h2>
                 <div className="flex space-x-2">
-                  <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                    近1月
-                  </button>
-                  <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                    近3月
-                  </button>
-                  <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md">
-                    近1年
-                  </button>
-                  <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                    近3年
-                  </button>
-                  <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                    成立以来
-                  </button>
+                  {(['1m', '3m', '1y', '3y', 'all'] as TimeRange[]).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setTimeRange(range)}
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        timeRange === range ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {range === '1m' ? '近1月' : 
+                       range === '3m' ? '近3月' : 
+                       range === '1y' ? '近1年' : 
+                       range === '3y' ? '近3年' : '成立以来'}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="h-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                {navHistory.length > 0 ? (
+                {filteredNavHistory.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
-                      data={navHistory}
+                      data={filteredNavHistory}
                       margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
                     >
                       <defs>
@@ -230,7 +320,7 @@ export default function FundDetail() {
             </div>
             
             {/* Performance Analysis */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-800">业绩分析</h2>
               <div className="space-y-4">
                 <div>
@@ -261,6 +351,115 @@ export default function FundDetail() {
                 </div>
               </div>
             </div>
+            
+            {/* Portfolio Holdings */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">投资组合</h2>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 font-medium mb-2">行业分布</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">金融</span>
+                        <span className="text-sm font-semibold text-gray-900">35%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: '35%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">科技</span>
+                        <span className="text-sm font-semibold text-gray-900">25%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-500 rounded-full" style={{ width: '25%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">消费</span>
+                        <span className="text-sm font-semibold text-gray-900">20%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-500 rounded-full" style={{ width: '20%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">医药</span>
+                        <span className="text-sm font-semibold text-gray-900">12%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full" style={{ width: '12%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">其他</span>
+                        <span className="text-sm font-semibold text-gray-900">8%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gray-400 rounded-full" style={{ width: '8%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 font-medium mb-2">资产配置</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">股票</span>
+                        <span className="text-sm font-semibold text-gray-900">70%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-pink-500 rounded-full" style={{ width: '70%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">债券</span>
+                        <span className="text-sm font-semibold text-gray-900">20%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-500 rounded-full" style={{ width: '20%' }}></div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700">现金</span>
+                        <span className="text-sm font-semibold text-gray-900">10%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-500 rounded-full" style={{ width: '10%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t border-gray-200 pt-4">
+                  <p className="text-sm text-gray-500 font-medium mb-3">前十大重仓股</p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {['贵州茅台', '招商银行', '宁德时代', '比亚迪', '美的集团', '海康威视', '隆基绿能', '中免集团', '药明康德', '迈瑞医疗'].map((stock, index) => (
+                      <div key={index} className="bg-gray-50 p-3 rounded-lg text-center">
+                        <p className="text-xs text-gray-500 mb-1">#{index + 1}</p>
+                        <p className="text-sm font-semibold text-gray-900">{stock}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Related Funds */}
+            {relatedFunds.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">相关推荐</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {relatedFunds.map((relatedFund) => (
+                    <Link 
+                      key={relatedFund.id}
+                      href={`/funds/${relatedFund.id}`}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <p className="font-semibold text-gray-900 mb-1">{relatedFund.name_cn}</p>
+                      <p className="text-sm text-gray-500 mb-2">{relatedFund.code}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">最新净值</span>
+                        <span className="text-sm font-bold text-blue-600">¥{relatedFund.nav?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Right Column: Actions */}
@@ -308,6 +507,38 @@ export default function FundDetail() {
           </div>
         </div>
       </div>
+      
+      {/* Share Dialog */}
+      {showShareDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">分享基金</h3>
+              <button 
+                onClick={() => setShowShareDialog(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">分享这个基金给你的朋友</p>
+            <div className="space-y-3">
+              <button
+                onClick={copyShareLink}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                复制链接
+              </button>
+              <button
+                onClick={confirmShare}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                分享到微信
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
