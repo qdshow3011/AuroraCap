@@ -94,11 +94,11 @@ export default function RedeemApply() {
         }
         
         // If we have user profile, fetch positions - same as positions page
-        if (profileData || currentUser) {
-          // Use profileData if available, otherwise use currentUser
-          const userToUse = profileData || currentUser;
+        if (profileData) {
+          // Use profileData
+          const userToUse = profileData;
           setUser(userToUse);
-          setProfile(profileData || userToUse);
+          setProfile(profileData);
           
           // Set role - use profileData.role if available, otherwise default to User
           const userRoleToUse = profileData?.role || 'User';

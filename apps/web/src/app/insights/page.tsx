@@ -49,7 +49,7 @@ export default function InsightsList() {
           setCategories(meta.categories);
         } else {
           // Extract unique categories from insights
-          const uniqueCategories = Array.from(new Set(data?.map((insight: any) => insight.category).filter(Boolean) || []));
+          const uniqueCategories = Array.from(new Set(data?.map((insight: any) => insight.category).filter(Boolean) || [])) as string[];
           setCategories(uniqueCategories);
         }
       } catch (error) {

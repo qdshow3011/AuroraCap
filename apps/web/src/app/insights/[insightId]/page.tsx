@@ -145,7 +145,7 @@ export default function InsightDetail() {
         console.log('Fetching comments for insight:', insightId);
         
         const url = new URL('/api/comments', window.location.origin);
-        url.searchParams.append('article_id', insightId);
+        url.searchParams.append('article_id', Array.isArray(insightId) ? insightId[0] : insightId);
         
         const response = await fetch(url.toString());
         
@@ -186,7 +186,7 @@ export default function InsightDetail() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          article_id: insightId,
+          article_id: Array.isArray(insightId) ? insightId[0] : insightId,
           content: commentContent.trim(),
           user_id: user.id,
         }),
